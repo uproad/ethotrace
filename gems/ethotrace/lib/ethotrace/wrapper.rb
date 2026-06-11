@@ -100,8 +100,9 @@ module Ethotrace
         bookkeep { context.record_return(result) }
         result
       rescue Exception => e # rubocop:disable Lint/RescueException
-        # エスケープ例外を記録し、必ず元の例外を再送出する(挙動を変えない)。
-        bookkeep { context.record_escaped_exception(e) }
+        # エスケープ例外を direct / inherited に帰属して記録し、必ず元の例外を
+        # 再送出する(挙動を変えない)。
+        bookkeep { Tracker.record_escape(context, e) }
         raise
       ensure
         bookkeep { conclude(context) }
