@@ -13,6 +13,11 @@ Metrics/BlockLength:
   Exclude:
     - "gems/*/spec/**/*"
 
+# キーワード引数は名前付きで順序非依存のため、過多引数の弊害(順序間違い)が
+# 起きない。本数のカウント対象から外す。
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 

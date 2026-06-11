@@ -6,6 +6,7 @@ require_relative "ethotrace/call_context"
 require_relative "ethotrace/tracker"
 require_relative "ethotrace/instrumentation"
 require_relative "ethotrace/wrapper"
+require_relative "ethotrace/jsonl_writer"
 
 # Ethotrace — Ruby 向け動的型検査・シグネチャ解析システムの core。
 #
