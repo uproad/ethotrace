@@ -8,8 +8,7 @@ module Ethotrace
   # 現状の操作:
   # - {#wrap_method} — 観測ラッパーの設置
   # - {#record_effect} — Requirements チャネルへのエフェクト記録
-  #
-  # `with_effect_span` は後続 feature(エフェクトスパン)で追加する。
+  # - {#with_effect_span} — エフェクト区間の宣言(下位の生エフェクトを畳み込む)
   class Instrumenter
     # 対象メソッドに観測ラッパーを設置する。二重 wrap は {Wrapper} が防ぐ。
     #
@@ -30,6 +29,28 @@ module Ethotrace
     # @param detail [Hash] エフェクト固有の詳細(機微情報は含めない)。
     def record_effect(kind, write:, **detail)
       ReentryGuard.guard { Tracker.record_effect(kind, write: write, **detail) }
+    end
+
+    # エフェクト区間を宣言する。区間の効果(例: "db.query")を活性スタックへ
+    # 記録し、ブロック実行中に発火した**生のエフェクト**(下位の実装詳細、例:
+    # ソケットへの io.write)は畳み込んで抑制する。OpenTelemetry のスパン階層と
+    # 同型で、上位アダプタの意味的なエフェクトと下位の重複記録を切り分ける。
+    #
+    # ブロックの戻り値をそのまま返す(計装対象の挙動を変えない)。区間の効果記録は
+    # 再入ガード下で行うが、ブロック自体はガード外で実行する(ネストした被観測
+    # 呼び出しを潰さないため)。
+    #
+    # @param kind [String, Symbol] エフェクト語彙(例: "db.query")。
+    # @param write [Boolean] 書き込み系か読み取り系か。
+    # @param detail [Hash] エフェクト固有の詳細(機微情報は含めない)。
+    def with_effect_span(kind, write:, **detail)
+      ReentryGuard.guard { Tracker.record_span_effect(kind, write: write, **detail) }
+      Tracker.enter_effect_span
+      begin
+        yield
+      ensure
+        Tracker.leave_effect_span
+      end
     end
   end
 end

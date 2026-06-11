@@ -47,4 +47,37 @@ RSpec.describe Ethotrace::Instrumenter do
       expect(ctx.to_observation[:requirements]).to be_empty
     end
   end
+
+  describe "#with_effect_span" do
+    it "records the span effect and folds away raw effects fired within it" do
+      ctx = Ethotrace::Tracker.begin_call(owner: "Repo", name: :find, kind: :instance)
+      result = instrumenter.with_effect_span("db.query", write: false, tables: ["users"]) do
+        instrumenter.record_effect("io.write", write: true, path: "/sock") # 下位の生エフェクト
+        :rows
+      end
+      expect(result).to eq(:rows)
+      # io.write はスパンへ畳み込まれ、db.query だけが残る。
+      kinds = ctx.to_observation[:requirements].map { |r| r[:kind] }
+      expect(kinds).to eq(["db.query"])
+    end
+
+    it "resumes recording raw effects after the span ends" do
+      ctx = Ethotrace::Tracker.begin_call(owner: "A", name: :a, kind: :instance)
+      instrumenter.with_effect_span("db.query", write: false) { nil }
+      instrumenter.record_effect("time.read", write: false)
+      kinds = ctx.to_observation[:requirements].map { |r| r[:kind] }
+      expect(kinds).to contain_exactly("db.query", "time.read")
+    end
+
+    it "attributes the span effect to the active call stack" do
+      ctx = Ethotrace::Tracker.begin_call(owner: "Repo", name: :find, kind: :instance)
+      instrumenter.with_effect_span("db.query", write: false) { nil }
+      expect(ctx.to_observation[:requirements].first).to include(kind: "db.query", direct: true)
+    end
+
+    it "returns the block result" do
+      Ethotrace::Tracker.begin_call(owner: "A", name: :a, kind: :instance)
+      expect(instrumenter.with_effect_span("x", write: false) { 42 }).to eq(42)
+    end
+  end
 end
