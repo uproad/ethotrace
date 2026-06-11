@@ -1,35 +1,119 @@
-# Ethotrace
+# Ethotrace (core)
 
-TODO: Delete this and the text below, and describe your gem
+**Ethotrace** は Ruby 向けの動的型検査・シグネチャ解析システム。公称型(型名)ではなく、
+テスト実行中のメソッド呼び出しを観測して「振る舞い(プロトコル)」「伝播例外」
+「実行環境要件(Requirements)」を三チャネルで記録する。
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/ethotrace`. To experiment with that code, run `bin/console` for an interactive prompt.
+この gem は **core** — 観測の物理学を担う層である。`Module#prepend` ラッパーによる
+Success / Error の捕捉、コールスタック管理、例外の帰属、三チャネルのデータモデル、
+JSON Lines シリアライズを提供する。**Rails にも RSpec にも依存しない。**
+計装対象の選択やテストライフサイクル接続といった意味論はアダプタ gem が担う。
 
-## Installation
+> 観測結果は **observed contract(観測された下限)** であり、テストカバレッジに依存する。
+> 未実行パスの規約は含まれない。これは欠陥ではなく仕様である。
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+設計の詳細は [`ethotrace-design-handoff.md`](../../ethotrace-design-handoff.md)、
+gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](../../docs/schema.md) を参照。
 
-Install the gem and add to the application's Gemfile by executing:
+## 実装状況
 
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+| マイルストーン | 内容 | 状態 |
+|---|---|---|
+| M0 | スキャフォールド + スキーマ v1 確定 | ✅ |
+| M1 | prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター | ✅ |
+| M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO)+ 帰属 + エフェクトスパン | 予定 |
+| M3 | TracePoint エンジン + 引数プロトコル観測 | 予定 |
+| M4〜 | RSpec / マージ CLI / Rails / MCP / RBS | 予定 |
+
+現時点(M1)では **Success(戻り値クラス)** と **Error(エスケープ例外と direct/inherited 帰属)**
+の二チャネルを観測できる。引数プロトコル(`params`)と Requirements は後続マイルストーンで実装する
+(出力スキーマ上は空配列としてプレースホルダが入る)。
+
+## インストール
+
+未リリースのため、git 参照で利用する(モノレポのルートから `bundle install` すれば解決される):
+
+```ruby
+gem "ethotrace", git: "https://github.com/uproad/ethotrace", glob: "gems/ethotrace/*.gemspec"
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+## 使い方
 
-```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+計装対象のメソッドを `Wrapper.wrap` で包み、完了した観測の購読者として `JSONLWriter` を
+登録する。被計装メソッドを呼ぶたびに、戻り値・エスケープ例外が JSON Lines として書き出される。
+
+```ruby
+require "ethotrace"
+
+class Order
+  def total_price(items)
+    items.sum { |item| item.fetch(:price) }
+  end
+end
+
+# 観測結果の出力先(ここでは標準出力。ファイルなら JSONLWriter.open を使う)。
+writer = Ethotrace::JSONLWriter.new($stdout, session: "demo-pid#{Process.pid}")
+
+# 完了した観測の購読者として登録し、対象メソッドを計装する。
+Ethotrace::Wrapper.subscribe(writer)
+Ethotrace::Wrapper.wrap(Order, :total_price)
+
+Order.new.total_price([{ price: 300 }, { price: 700 }])  # => 1000(透過。挙動は変わらない)
+
+begin
+  Order.new.total_price([{ amount: 100 }])  # KeyError がエスケープ
+rescue KeyError
+  # 例外はそのまま再送出される。観測は Error チャネルへ記録される。
+end
 ```
 
-## Usage
+上のコードは次のような JSONL を出力する(`session` レコード 1 行 +
+呼び出しごとの `method_observation` レコード):
 
-TODO: Write usage instructions here
+```json
+{"schema_version":1,"type":"session","session":"demo-pid1234", ...}
+{"schema_version":1,"type":"method_observation","method":{"owner":"Order","name":"total_price","kind":"instance"},"return":{"classes_seen":["Integer"]},"errors":[], ...}
+{"schema_version":1,"type":"method_observation","method":{"owner":"Order","name":"total_price","kind":"instance"},"return":{"classes_seen":[]},"errors":[{"class":"KeyError","origin":"direct","from":null}], ...}
+```
 
-## Development
+ファイルへ書き出す場合は `JSONLWriter.open` を使う(ブロック終了時に自動 close):
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```ruby
+Ethotrace::JSONLWriter.open("tmp/ethotrace/#{session_id}.jsonl", session: session_id) do |writer|
+  Ethotrace::Wrapper.subscribe(writer)
+  # ... テストを実行 ...
+end
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+レコードの完全なフィールド定義は [`docs/schema.md`](../../docs/schema.md)(schema_version 1)を参照。
 
-## License
+## 構成要素(core)
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+| 要素 | 役割 |
+|---|---|
+| `ReentryGuard` | トレーサ自身のコードがフックを再発火させる無限再帰を防ぐ Thread/Fiber-local フラグ。 |
+| `CallContext` | 1 回の呼び出しに対応する観測アキュムレータ。Success / Error を蓄積し `#to_observation` を生成。 |
+| `Tracker` | Thread/Fiber-local のコールスタック。`begin_call` / `end_call` と例外の direct/inherited 帰属。 |
+| `Instrumentation` | 横取りモジュールの生成・prepend・記述子算出(可視性も保存)という計装の物理機構。 |
+| `Wrapper` | 計装レジストリ(二重 wrap 禁止)・観測ランタイム・購読者の継ぎ目を束ねるオーケストレーション。 |
+| `JSONLWriter` | `session` / `method_observation` レコードを JSON Lines として追記出力するシンク。 |
+
+### 透過性の保証(挙動を一切変えない)
+
+prepend ラッパーは引数(`*args, **kwargs, &block`)・キーワード・ブロックをそのまま委譲し、
+戻り値の同一性を保ち、エスケープ例外は必ず再送出する。元メソッドの可視性(private/protected)も
+保存する。観測の記録処理は再入ガード下でのみ行い、`super` はガードの外で呼ぶため、ネストした
+被観測呼び出しを潰さない。記録中に内部エラーが起きてもユーザーへは伝播させず、観測のみ無効化する。
+
+## 開発
+
+```bash
+# モノレポのルートから実行する
+bundle exec rake          # 全 gem の spec + RuboCop
+bundle exec rake spec     # テストのみ
+bundle exec rake rubocop
+```
+
+## ライセンス
+
+MIT License の下で公開されるオープンソースである。
