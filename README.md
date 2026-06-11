@@ -24,6 +24,20 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](docs/sc
 | `gems/ethotrace-mcp` | MCP サーバ(予定) |
 | `gems/ethotrace-rbs` | RBS interface への投影(予定) |
 
+## 実装状況
+
+| マイルストーン | 内容 | 状態 |
+|---|---|---|
+| M0 | スキャフォールド + スキーマ v1 確定 | ✅ |
+| M1 | prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター(Success / Error チャネル) | ✅ |
+| M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO)+ 帰属 + エフェクトスパン | 予定 |
+| M3 | TracePoint エンジン + 引数プロトコル観測 | 予定 |
+| M4 | `ethotrace-rspec` + マージ CLI | 予定 |
+| M5 | `ethotrace-rails`(Railtie / Notifications / Zeitwerk) | 予定 |
+| M6 | `ethotrace-mcp` + `ethotrace-rbs` | 予定 |
+
+core の使い方は [`gems/ethotrace/README.md`](gems/ethotrace/README.md) を参照。
+
 ## 開発
 
 Ruby >= 3.2 が必要。
