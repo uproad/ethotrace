@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "securerandom"
+require "tmpdir"
 
 RSpec.describe Ethotrace::Adapters::Stdlib do
   subject(:adapter) { described_class.new }
@@ -55,6 +56,74 @@ RSpec.describe Ethotrace::Adapters::Stdlib do
       reqs = requirements_during { value = ENV.fetch("ETHOTRACE_TEST") }
       expect(value).to eq("secret-value")
       expect(reqs.first).to include(kind: "env.read", detail: { key: "ETHOTRACE_TEST" })
+    end
+  end
+
+  describe "env.write" do
+    after { ENV.delete("ETHOTRACE_W") }
+
+    it "records ENV#[]= with the key only and stays transparent" do
+      reqs = requirements_during { ENV["ETHOTRACE_W"] = "v1" }
+      expect(ENV.fetch("ETHOTRACE_W")).to eq("v1")
+      expect(reqs).to eq([{ kind: "env.write", write: true, direct: true, from: nil,
+                            detail: { key: "ETHOTRACE_W" } }])
+    end
+
+    it "records ENV#delete as a write" do
+      ENV["ETHOTRACE_W"] = "v1"
+      reqs = requirements_during { ENV.delete("ETHOTRACE_W") }
+      expect(reqs.first).to include(kind: "env.write", detail: { key: "ETHOTRACE_W" })
+    end
+  end
+
+  describe "io.read / io.write" do
+    around do |example|
+      Dir.mktmpdir { |dir| @dir = dir and example.run }
+    end
+
+    it "records File.write as io.write and File.read as io.read (with path/mode)" do
+      path = File.join(@dir, "data.txt")
+      write_reqs = requirements_during { File.write(path, "hello") }
+      read_reqs = requirements_during { File.read(path) }
+
+      expect(write_reqs.first).to include(kind: "io.write", write: true, detail: { path: path, mode: "w" })
+      expect(read_reqs.first).to include(kind: "io.read", write: false, detail: { path: path, mode: "r" })
+    end
+
+    it "classifies File.open by mode" do
+      path = File.join(@dir, "data.txt")
+      # File.open(write) フックを試すのが目的。Style/FileWrite はこの構文の
+      # 検査でクラッシュするため無効化する。
+      reqs_w = requirements_during { File.open(path, "w") { |f| f.write("x") } } # rubocop:disable Style/FileWrite
+      # File.open フック(read 既定)を試すのが目的なので、open のみ行う。
+      reqs_r = requirements_during { File.open(path, &:path) }
+      expect(reqs_w.first).to include(kind: "io.write", detail: { path: path, mode: "w" })
+      expect(reqs_r.first).to include(kind: "io.read", detail: { path: path, mode: "r" })
+    end
+  end
+
+  describe "process.exec" do
+    it "records Kernel#system with the program name only (args masked) and runs it" do
+      result = nil
+      reqs = requirements_during { result = system("true") }
+      expect(result).to be(true)
+      expect(reqs).to eq([{ kind: "process.exec", write: true, direct: true, from: nil,
+                            detail: { command: "true" } }])
+    end
+
+    it "records the backtick form" do
+      reqs = requirements_during { `true` }
+      expect(reqs.first).to include(kind: "process.exec", detail: { command: "true" })
+    end
+
+    describe ".mask_command" do
+      it "keeps only the program name and drops arguments" do
+        expect(described_class.mask_command(["psql -U user -W secret"])).to eq("psql")
+        expect(described_class.mask_command(["ls", "-la"])).to eq("ls")
+        expect(described_class.mask_command([{ "ENV" => "1" }, "ls", "-la"])).to eq("ls")
+        expect(described_class.mask_command([["/bin/ls", "ls"], "-la"])).to eq("/bin/ls")
+        expect(described_class.mask_command([])).to eq("?")
+      end
     end
   end
 
