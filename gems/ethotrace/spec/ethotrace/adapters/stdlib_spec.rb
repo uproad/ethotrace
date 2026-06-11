@@ -168,6 +168,16 @@ RSpec.describe Ethotrace::Adapters::Stdlib do
     end
   end
 
+  describe "effect span folding" do
+    it "folds a stdlib raw effect into an enclosing effect span" do
+      reqs = requirements_during do
+        instrumenter.with_effect_span("db.query", write: false) { Time.now }
+      end
+      # 区間中の time.read はスパンへ畳み込まれ、db.query だけが残る。
+      expect(reqs.map { |r| r[:kind] }).to eq(["db.query"])
+    end
+  end
+
   describe "uninstall / re-entry guard" do
     it "records nothing after uninstall" do
       adapter.uninstall(instrumenter)

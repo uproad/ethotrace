@@ -148,6 +148,34 @@ RSpec.describe Ethotrace::Tracker do
     end
   end
 
+  describe "effect span suppression" do
+    it "suppresses record_effect while a span is active" do
+      ctx = begin_call(owner: "A", name: :a)
+      described_class.enter_effect_span
+      described_class.record_effect("io.write", write: true)
+      expect(ctx.to_observation[:requirements]).to be_empty
+    ensure
+      described_class.leave_effect_span
+    end
+
+    it "records a span effect even while a span is active" do
+      ctx = begin_call(owner: "A", name: :a)
+      described_class.enter_effect_span
+      described_class.record_span_effect("db.query", write: false)
+      expect(ctx.to_observation[:requirements].map { |r| r[:kind] }).to eq(["db.query"])
+    ensure
+      described_class.leave_effect_span
+    end
+
+    it "nests and never drops the depth below zero" do
+      described_class.enter_effect_span
+      described_class.enter_effect_span
+      expect(described_class.effect_span_active?).to be(true)
+      3.times { described_class.leave_effect_span }
+      expect(described_class.effect_span_active?).to be(false)
+    end
+  end
+
   describe ".reset" do
     it "clears the current stack" do
       begin_call(name: :total)
@@ -164,6 +192,12 @@ RSpec.describe Ethotrace::Tracker do
       fresh = begin_call(owner: "B", name: :b)
       described_class.record_escape(fresh, exception)
       expect(fresh.to_observation[:errors].first).to include(origin: "direct")
+    end
+
+    it "clears any active effect span depth" do
+      described_class.enter_effect_span
+      described_class.reset
+      expect(described_class.effect_span_active?).to be(false)
     end
   end
 end
