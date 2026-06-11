@@ -45,8 +45,10 @@ module Ethotrace
       if stack.last.equal?(context)
         stack.pop
       elsif (index = stack.rindex { |c| c.equal?(context) })
-        stack.slice!(index..)
+        # 取り残された内側フレームも追跡テーブルから掃除する。
+        stack.slice!(index..).each { |c| ArgumentTable.untrack(c) }
       end
+      ArgumentTable.untrack(context)
       context
     end
 
@@ -158,6 +160,7 @@ module Ethotrace
       Thread.current[STACK_KEY] = nil
       Thread.current[ESCAPE_KEY] = nil
       Thread.current[SPAN_KEY] = nil
+      ArgumentTable.reset
     end
   end
 end
