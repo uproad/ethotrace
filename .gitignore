@@ -1,6 +1,15 @@
 *.gem
 *.rbc
 /.config
+
+# RSpec の example status 永続化ファイル
+.rspec_status
+
+# モノレポ: gem 個別の Gemfile.lock は追跡せず、ルートで集約管理する
+gems/*/Gemfile.lock
+
+# Ethotrace の観測生ログ出力先
+/tmp/ethotrace/
 /coverage/
 /InstalledFiles
 /pkg/
