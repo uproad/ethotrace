@@ -22,12 +22,13 @@ RSpec.describe Ethotrace::CLI::ViewCommand do
     path
   end
 
-  def observation(owner:, name:, kind: "instance", return_classes: [], errors: [], samples: 1)
+  def observation(owner:, name:, kind: "instance", return_classes: [], errors: [],
+                  requirements: [], samples: 1)
     {
       schema_version: 1, type: "method_observation",
       method: { owner: owner, name: name, kind: kind },
       site: nil, params: [], return: { classes_seen: return_classes },
-      errors: errors, requirements: [], samples: samples, session: "s1"
+      errors: errors, requirements: requirements, samples: samples, session: "s1"
     }
   end
 
@@ -61,6 +62,15 @@ RSpec.describe Ethotrace::CLI::ViewCommand do
     path = fixture([observation(owner: "Order", name: "total", return_classes: ["Integer"])])
     expect(run(path, "--index", "1")).to eq(0)
     expect(out.string).to include("Order#total")
+  end
+
+  it "renders requirements in the detail view" do
+    requirement = { kind: "env.read", write: false, direct: true, from: nil, detail: { key: "TAX_RATE" } }
+    path = fixture([observation(owner: "Order", name: "total", requirements: [requirement])])
+    expect(run(path, "-i", "1")).to eq(0)
+    expect(out.string).to include("requirements:")
+    expect(out.string).to include("env.read")
+    expect(out.string).to include("TAX_RATE")
   end
 
   it "returns 1 for an out-of-range --index" do

@@ -18,6 +18,8 @@ module Ethotrace
     # 直近にエスケープ中の例外と、その伝播元(被観測 callee)記述子を保持する
     # Thread/Fiber-local のキー。例外帰属(direct / inherited)に使う。
     ESCAPE_KEY = :ethotrace_last_escape
+    # 活性なエフェクトスパンの深さを保持する Thread/Fiber-local のキー。
+    SPAN_KEY = :ethotrace_effect_span_depth
 
     module_function
 
@@ -71,6 +73,63 @@ module Ethotrace
       exception
     end
 
+    # エフェクト(外部世界への接触)を活性コールスタック全段へ帰属する。
+    #
+    # 例外と違いエフェクトは 1 点で発火するため、発火時点の活性スタックを
+    # 一度に走査して帰属できる(ethotrace-design-handoff.md §4.4)。最深フレームは
+    # 当該メソッド自身での発火(direct)、それより外のフレームは callee からの
+    # 継承(inherited)で、`from` は直近 callee のメソッド参照になる。観測中の
+    # メソッドが無い(スタックが空)場合は帰属先が無いので何もしない。
+    #
+    # 再入ガードは公開境界({Instrumenter#record_effect})が担うため、ここでは
+    # 純粋な帰属のみを行う。
+    #
+    # エフェクトスパン({Instrumenter#with_effect_span})が活性な間は、生の
+    # エフェクトはスパンへ畳み込むため記録しない(下位の実装詳細の重複記録を防ぐ)。
+    def record_effect(kind, write:, **detail)
+      return nil if effect_span_active?
+
+      attribute_effect(kind, write: write, **detail)
+    end
+
+    # スパン宣言時の効果。スパンによる抑制を受けず、常に活性スタックへ帰属する。
+    def record_span_effect(kind, write:, **detail)
+      attribute_effect(kind, write: write, **detail)
+    end
+
+    # エフェクトを活性コールスタック全段へ帰属する(抑制判定なし)。
+    def attribute_effect(kind, write:, **detail)
+      stack = call_stack
+      deepest = stack.size - 1
+      stack.each_with_index do |context, index|
+        direct = index == deepest
+        from = direct ? nil : method_ref(stack[index + 1])
+        context.add_requirement(kind, write: write, direct: direct, from: from, detail: detail)
+      end
+      nil
+    end
+
+    # エフェクトスパンに入る(Fiber-local の深さを増やす)。区間中の生エフェクトは
+    # 抑制される。{Instrumenter#with_effect_span} から呼ばれる。
+    def enter_effect_span
+      Thread.current[SPAN_KEY] = effect_span_depth + 1
+    end
+
+    # エフェクトスパンから出る。深さは 0 未満にならない。
+    def leave_effect_span
+      Thread.current[SPAN_KEY] = [effect_span_depth - 1, 0].max
+    end
+
+    # いずれかのエフェクトスパンが活性か。
+    def effect_span_active?
+      effect_span_depth.positive?
+    end
+
+    # 現在の Fiber のエフェクトスパンの深さ。
+    def effect_span_depth
+      Thread.current[SPAN_KEY] || 0
+    end
+
     # context のメソッドを `Owner#name`(特異メソッドは `Owner.name`)形式で表す。
     def method_ref(context)
       separator = context.kind == :singleton ? "." : "#"
@@ -98,6 +157,7 @@ module Ethotrace
     def reset
       Thread.current[STACK_KEY] = nil
       Thread.current[ESCAPE_KEY] = nil
+      Thread.current[SPAN_KEY] = nil
     end
   end
 end
