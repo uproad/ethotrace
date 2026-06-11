@@ -176,6 +176,35 @@ RSpec.describe Ethotrace::Tracker do
     end
   end
 
+  describe "argument tracking-table cleanup on end_call" do
+    it "removes the context's argument registrations" do
+      arg = [1, 2]
+      ctx = begin_call(name: :total)
+      Ethotrace::ArgumentTable.track(ctx, [arg])
+      described_class.end_call(ctx)
+      expect(Ethotrace::ArgumentTable.lookup(arg.object_id)).to eq([])
+    end
+
+    it "keeps registrations of an outer context that still owns the object" do
+      shared = +"shared"
+      outer = begin_call(owner: "A", name: :a)
+      Ethotrace::ArgumentTable.track(outer, [shared])
+      inner = begin_call(owner: "B", name: :b)
+      Ethotrace::ArgumentTable.track(inner, [shared])
+      described_class.end_call(inner)
+      expect(Ethotrace::ArgumentTable.lookup(shared.object_id)).to eq([[outer, 0]])
+    end
+
+    it "cleans up inner frames left behind by a mismatched end_call" do
+      arg = [1]
+      outer = begin_call(owner: "A", name: :a)
+      inner = begin_call(owner: "B", name: :b)
+      Ethotrace::ArgumentTable.track(inner, [arg])
+      described_class.end_call(outer)
+      expect(Ethotrace::ArgumentTable.lookup(arg.object_id)).to eq([])
+    end
+  end
+
   describe ".reset" do
     it "clears the current stack" do
       begin_call(name: :total)
@@ -198,6 +227,14 @@ RSpec.describe Ethotrace::Tracker do
       described_class.enter_effect_span
       described_class.reset
       expect(described_class.effect_span_active?).to be(false)
+    end
+
+    it "clears the argument tracking table" do
+      arg = [1, 2]
+      ctx = begin_call(name: :total)
+      Ethotrace::ArgumentTable.track(ctx, [arg])
+      described_class.reset
+      expect(Ethotrace::ArgumentTable.lookup(arg.object_id)).to eq([])
     end
   end
 end

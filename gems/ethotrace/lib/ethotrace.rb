@@ -3,6 +3,7 @@
 require_relative "ethotrace/version"
 require_relative "ethotrace/reentry_guard"
 require_relative "ethotrace/call_context"
+require_relative "ethotrace/argument_table"
 require_relative "ethotrace/tracker"
 require_relative "ethotrace/instrumentation"
 require_relative "ethotrace/wrapper"
