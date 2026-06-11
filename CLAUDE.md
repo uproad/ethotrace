@@ -21,22 +21,29 @@ gems/ethotrace-mcp      # MCP サーバ(観測プロセスと完全分離)
 gems/ethotrace-rbs      # RBS interface への投影
 ```
 
-## コマンド(整備後)
+## コマンド
+
+モノレポのルートから実行する。ルートの `Gemfile` が全 gem を束ね、`Rakefile` が全 gem の
+spec と RuboCop を集約する。
 
 ```bash
-# テスト実行
-bundle exec rspec                          # 全テスト
-bundle exec rspec spec/path/to/spec.rb     # 単一ファイル
-bundle exec rspec spec/path/to/spec.rb:42  # 行番号指定
+# テスト実行(ルート集約)
+bundle exec rake spec                       # 全 gem の全テスト
+bundle exec rake                            # spec + RuboCop
+
+# 単一ファイル / 行番号指定は -I で spec ディレクトリを load path に渡す
+#(ルート .rspec の --require spec_helper を解決するため)
+bundle exec rspec -I gems/ethotrace/spec gems/ethotrace/spec/ethotrace_spec.rb
+bundle exec rspec -I gems/ethotrace/spec gems/ethotrace/spec/ethotrace_spec.rb:42
 
 # Lint
-bundle exec rubocop
+bundle exec rake rubocop
 bundle exec rubocop --autocorrect
 
-# ベンチマーク
-bundle exec ruby benchmarks/overhead.rb   # TracePoint なし / :call / :c_call の3構成
+# ベンチマーク(整備後)
+bundle exec ruby benchmarks/overhead.rb     # TracePoint なし / :call / :c_call の3構成
 
-# 観測データのマージ
+# 観測データのマージ(整備後)
 bundle exec ethotrace merge tmp/ethotrace/*.jsonl -o ethotrace/observations.json
 ```
 
@@ -107,6 +114,14 @@ main                          # 安定版。milestone ブランチから統合�
 
 - **`main` への直接コミット・直接 push は禁止**。`main` は **GitHub 上の Pull Request マージ経由でのみ**更新する。
 - すべての変更は `milestone/*` / `feature/*` / `document` 等のブランチ上で行い、PR を作成してマージする。
+
+### コミット署名(必須)
+
+- 全コミットを **SSH 署名(ed25519)** する。署名鍵は認証用 `id_rsa` と分離した署名専用鍵
+  (`~/.ssh/id_ed25519_sign`)で、GitHub に signing key として登録済み(PR 上で **Verified** 表示)。
+- git 設定はリポジトリローカルに適用済み(`commit.gpgsign=true` / `tag.gpgsign=true` /
+  `gpg.format=ssh`)。**新規コミットは自動的に署名される**。
+- 既存コミットを再署名する必要がある場合は `git rebase --exec "git commit --amend --no-edit -S" <base>` を使う。
 
 ## テスト戦略
 
