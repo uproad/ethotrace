@@ -21,13 +21,14 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](../../d
 |---|---|---|
 | M0 | スキャフォールド + スキーマ v1 確定 | ✅ |
 | M1 | prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター | ✅ |
-| M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO)+ 帰属 + エフェクトスパン | 予定 |
+| M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO/Process)+ Requirements 帰属 + エフェクトスパン | ✅ |
 | M3 | TracePoint エンジン + 引数プロトコル観測 | 予定 |
 | M4〜 | RSpec / マージ CLI / Rails / MCP / RBS | 予定 |
 
-現時点(M1)では **Success(戻り値クラス)** と **Error(エスケープ例外と direct/inherited 帰属)**
-の二チャネルを観測できる。引数プロトコル(`params`)と Requirements は後続マイルストーンで実装する
-(出力スキーマ上は空配列としてプレースホルダが入る)。
+現時点(M2)では三チャネルのうち **Success(戻り値クラス)**・**Error(エスケープ例外と
+direct/inherited 帰属)**・**Requirements(外部接触: `env.read`/`env.write`/`time.read`/
+`random.read`/`io.read`/`io.write`/`process.exec`)** を観測できる。引数プロトコル(`params`)は
+TracePoint エンジン(M3)で実装するまで出力スキーマ上は空配列のプレースホルダが入る。
 
 ## インストール
 
@@ -86,6 +87,29 @@ end
 ```
 
 レコードの完全なフィールド定義は [`docs/schema.md`](../../docs/schema.md)(schema_version 1)を参照。
+
+### Requirements も観測する(アダプタ込みのセッション)
+
+`Ethotrace::Session` で囲むと、core 内蔵の **stdlib アダプタ**(ENV/Time/Random/IO/Process)が
+有効になり、被計装メソッドの実行中に触れた外部世界(Requirements チャネル)も記録される。
+session レコードには有効なアダプタ名と観測オプションが載る。
+
+```ruby
+session = Ethotrace::Session.start($stdout, id: "demo-pid#{Process.pid}")
+
+class Tax
+  def rate = Integer(ENV.fetch("TAX_RATE"))  # env.read が記録される
+end
+Ethotrace::Wrapper.wrap(Tax, :rate)
+Tax.new.rate
+
+session.finish  # アダプタ終了通知・購読解除・出力先 close
+```
+
+`rate` の観測には `requirements: [{ "kind": "env.read", "detail": { "key": "TAX_RATE" } }]`
+が含まれる(**ENV の値は記録しない** — key のみ)。アダプタが `with_effect_span("db.query") { ... }`
+で区間を宣言すると、区間中の下位エフェクト(例: ソケットへの `io.write`)は畳み込まれて
+重複記録されない。
 
 ## CLI: 観測結果をターミナルで見る
 
