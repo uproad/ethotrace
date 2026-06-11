@@ -84,11 +84,59 @@ RSpec.describe Ethotrace::Tracker do
     end
   end
 
+  describe ".record_escape" do
+    let(:exception) { KeyError.new("missing") }
+
+    it "attributes the first wrapped frame an exception escapes as direct" do
+      ctx = begin_call(owner: "C", name: :c)
+      described_class.record_escape(ctx, exception)
+      expect(ctx.to_observation[:errors])
+        .to eq([{ class: "KeyError", origin: "direct", from: nil }])
+    end
+
+    it "attributes an outer frame as inherited from the deeper callee" do
+      callee = begin_call(owner: "C", name: :c)
+      caller_ctx = begin_call(owner: "B", name: :b)
+      # 例外は深いフレーム(callee)を先に通り、次に外側(caller)を通る。
+      described_class.record_escape(callee, exception)
+      described_class.record_escape(caller_ctx, exception)
+      expect(caller_ctx.to_observation[:errors])
+        .to eq([{ class: "KeyError", origin: "inherited", from: "C#c" }])
+    end
+
+    it "uses dot notation for a singleton callee in `from`" do
+      callee = begin_call(owner: "C", name: :build, kind: :singleton)
+      caller_ctx = begin_call(owner: "B", name: :b)
+      described_class.record_escape(callee, exception)
+      described_class.record_escape(caller_ctx, exception)
+      expect(caller_ctx.to_observation[:errors].first[:from]).to eq("C.build")
+    end
+
+    it "treats a different exception object as a fresh direct escape" do
+      first = begin_call(owner: "C", name: :c)
+      second = begin_call(owner: "B", name: :b)
+      described_class.record_escape(first, exception)
+      described_class.record_escape(second, RuntimeError.new("other"))
+      expect(second.to_observation[:errors].first).to include(origin: "direct", from: nil)
+    end
+  end
+
   describe ".reset" do
     it "clears the current stack" do
       begin_call(name: :total)
       described_class.reset
       expect(described_class.active?).to be(false)
+    end
+
+    it "clears the exception attribution state" do
+      ctx = begin_call(owner: "C", name: :c)
+      exception = KeyError.new
+      described_class.record_escape(ctx, exception)
+      described_class.reset
+      # reset 後は同じ例外でも伝播元の記憶が消え、direct 扱いに戻る。
+      fresh = begin_call(owner: "B", name: :b)
+      described_class.record_escape(fresh, exception)
+      expect(fresh.to_observation[:errors].first).to include(origin: "direct")
     end
   end
 end

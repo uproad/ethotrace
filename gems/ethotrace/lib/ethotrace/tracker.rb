@@ -15,6 +15,9 @@ module Ethotrace
   module Tracker
     # コールスタックを保持する Thread/Fiber-local のキー。
     STACK_KEY = :ethotrace_call_stack
+    # 直近にエスケープ中の例外と、その伝播元(被観測 callee)記述子を保持する
+    # Thread/Fiber-local のキー。例外帰属(direct / inherited)に使う。
+    ESCAPE_KEY = :ethotrace_last_escape
 
     module_function
 
@@ -45,6 +48,35 @@ module Ethotrace
       context
     end
 
+    # 例外がこの context のメソッドをエスケープしたことを記録し、direct /
+    # inherited を帰属する。各 prepend ラッパーの rescue から呼ばれる。
+    #
+    # 例外はコールスタックを下から上へ unwind し、各被観測フレームの rescue を
+    # 順に通る。より深い被観測フレームが既に**同一の例外オブジェクト**を見て
+    # いれば、この context にとっては callee からの伝播(inherited)であり、
+    # `from` はその直近 callee のメソッド参照になる。まだ誰も見ていなければ、
+    # 観測上はこのフレームで直接発生(direct)した扱いとする。
+    #
+    # 途中フレームのユーザーコードが rescue すれば、その上のラッパー rescue は
+    # 発火しないため記録もされない(= エスケープした例外のみが残る)。
+    def record_escape(context, exception)
+      previous = Thread.current[ESCAPE_KEY]
+      if previous && previous[:exception].equal?(exception)
+        context.record_escaped_exception(exception, origin: "inherited", from: previous[:from])
+      else
+        context.record_escaped_exception(exception, origin: "direct", from: nil)
+      end
+      # 一つ外側のフレームから見た「伝播元」はこのフレーム自身になる。
+      Thread.current[ESCAPE_KEY] = { exception: exception, from: method_ref(context) }
+      exception
+    end
+
+    # context のメソッドを `Owner#name`(特異メソッドは `Owner.name`)形式で表す。
+    def method_ref(context)
+      separator = context.kind == :singleton ? "." : "#"
+      "#{context.owner}#{separator}#{context.name}"
+    end
+
     # 現在(最深)の活性コンテキスト。スタックが空なら nil。
     def current
       call_stack.last
@@ -61,9 +93,11 @@ module Ethotrace
       !call_stack.empty?
     end
 
-    # 現在の Thread/Fiber のスタックを破棄する(セッション境界やテスト用)。
+    # 現在の Thread/Fiber のスタックと例外帰属状態を破棄する
+    # (セッション境界やテスト用)。
     def reset
       Thread.current[STACK_KEY] = nil
+      Thread.current[ESCAPE_KEY] = nil
     end
   end
 end
