@@ -87,6 +87,53 @@ end
 
 レコードの完全なフィールド定義は [`docs/schema.md`](../../docs/schema.md)(schema_version 1)を参照。
 
+## CLI: 観測結果をターミナルで見る
+
+書き出した JSONL は `ethotrace view` でさっと確認できる(開発者がローカルで見る用途)。
+複数ファイルは schema §7 のマージ意味論(`(owner, name, kind)` で和集合・`samples` 加算)で
+表示用に統合される。
+
+```bash
+# サマリ: メソッドごとに 1 行(戻り値・引数プロトコル種類数・エラー種類数・samples)
+bundle exec ethotrace view tmp/ethotrace/*.jsonl
+```
+
+```text
+2 methods · 1 sessions · 6 samples
+
+[1] Order.create       return: Symbol   args: 0  errors: 0  samples: 3
+[2] Order#total_price  return: Integer  args: 0  errors: 1  samples: 3
+```
+
+詳細(全情報)は index か メソッド名で開く。三チャネル + 引数プロトコルのセクションは
+常に表示し、M1 で未観測の `params` / `requirements` も枠だけ出す(最終形を見据えた表示)。
+
+```bash
+bundle exec ethotrace view tmp/ethotrace/*.jsonl --index 2
+bundle exec ethotrace view tmp/ethotrace/*.jsonl --method "Order#total_price"
+```
+
+```text
+Order#total_price  (instance)
+  site     : app/models/order.rb:12
+  samples  : 3
+  sessions : rspec-w1-pid42
+
+  return (Success):
+    Integer
+
+  args (protocol):
+    (none observed)
+
+  errors (Error):
+    KeyError  [direct]
+
+  requirements:
+    (none observed)
+```
+
+色は TTY 出力時のみ付く(`NO_COLOR` または `--no-color` で無効化)。
+
 ## 構成要素(core)
 
 | 要素 | 役割 |
