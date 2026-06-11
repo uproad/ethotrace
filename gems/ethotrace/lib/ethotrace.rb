@@ -10,6 +10,7 @@ require_relative "ethotrace/jsonl_writer"
 require_relative "ethotrace/instrumenter"
 require_relative "ethotrace/adapter"
 require_relative "ethotrace/adapter_registry"
+require_relative "ethotrace/adapters/stdlib"
 
 # Ethotrace — Ruby 向け動的型検査・シグネチャ解析システムの core。
 #
