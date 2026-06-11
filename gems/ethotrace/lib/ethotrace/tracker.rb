@@ -71,6 +71,27 @@ module Ethotrace
       exception
     end
 
+    # エフェクト(外部世界への接触)を活性コールスタック全段へ帰属する。
+    #
+    # 例外と違いエフェクトは 1 点で発火するため、発火時点の活性スタックを
+    # 一度に走査して帰属できる(ethotrace-design-handoff.md §4.4)。最深フレームは
+    # 当該メソッド自身での発火(direct)、それより外のフレームは callee からの
+    # 継承(inherited)で、`from` は直近 callee のメソッド参照になる。観測中の
+    # メソッドが無い(スタックが空)場合は帰属先が無いので何もしない。
+    #
+    # 再入ガードは公開境界({Instrumenter#record_effect})が担うため、ここでは
+    # 純粋な帰属のみを行う。
+    def record_effect(kind, write:, **detail)
+      stack = call_stack
+      deepest = stack.size - 1
+      stack.each_with_index do |context, index|
+        direct = index == deepest
+        from = direct ? nil : method_ref(stack[index + 1])
+        context.add_requirement(kind, write: write, direct: direct, from: from, detail: detail)
+      end
+      nil
+    end
+
     # context のメソッドを `Owner#name`(特異メソッドは `Owner.name`)形式で表す。
     def method_ref(context)
       separator = context.kind == :singleton ? "." : "#"

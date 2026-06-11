@@ -103,6 +103,37 @@ RSpec.describe Ethotrace::CallContext do
     end
   end
 
+  describe "#add_requirement" do
+    it "records an effect with all schema fields" do
+      ctx = build
+      ctx.add_requirement("env.read", write: false, direct: true, detail: { key: "TAX_RATE" })
+      expect(ctx.to_observation[:requirements]).to eq(
+        [{ kind: "env.read", write: false, direct: true, from: nil, detail: { key: "TAX_RATE" } }]
+      )
+    end
+
+    it "records inherited attribution with the propagating method" do
+      ctx = build
+      ctx.add_requirement("db.query", write: false, direct: false, from: "Item#price", detail: {})
+      entry = ctx.to_observation[:requirements].first
+      expect(entry).to include(direct: false, from: "Item#price")
+    end
+
+    it "stringifies the kind and defaults from/detail" do
+      ctx = build
+      ctx.add_requirement(:"time.read", write: false, direct: true)
+      expect(ctx.to_observation[:requirements].first).to eq(
+        kind: "time.read", write: false, direct: true, from: nil, detail: {}
+      )
+    end
+
+    it "deduplicates an identical effect fired more than once in one call" do
+      ctx = build
+      2.times { ctx.add_requirement("env.read", write: false, direct: true, detail: { key: "X" }) }
+      expect(ctx.to_observation[:requirements].size).to eq(1)
+    end
+  end
+
   describe "#to_observation" do
     it "produces a schema-shaped method_observation record" do
       ctx = build(site: { path: "app/models/order.rb", line: 12 })

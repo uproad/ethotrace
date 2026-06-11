@@ -29,6 +29,8 @@ module Ethotrace
       @return_classes = []
       # Error チャネル: メソッド外へエスケープした例外のエントリ集合。
       @escaped_errors = []
+      # Requirements チャネル: 外部世界への接触(エフェクト)のエントリ集合。
+      @requirements = []
     end
 
     # Success チャネル: 戻り値を記録し、その値をそのまま返す。
@@ -57,6 +59,21 @@ module Ethotrace
       @escaped_errors << entry unless @escaped_errors.include?(entry)
     end
 
+    # Requirements チャネル: 外部世界への接触(エフェクト)を記録する。
+    #
+    # direct / from は帰属(Tracker.record_effect)が供給する。同一エフェクトが
+    # 1 呼び出し中に複数回発火しても観測集合としては 1 件に重複排除する。
+    #
+    # @param kind [String, Symbol] エフェクト語彙(例: "env.read")。
+    # @param write [Boolean] 書き込み系(副作用的)か読み取り系(要件的)か。
+    # @param direct [Boolean] 当該メソッド自身での発火か、callee からの継承か。
+    # @param from [String, nil] 継承元メソッド(`Owner#name` 形式)。
+    # @param detail [Hash] エフェクト固有の詳細(機微情報は含めない)。
+    def add_requirement(kind, write:, direct:, from: nil, detail: {})
+      entry = { kind: kind.to_s, write: write, direct: direct, from: from, detail: detail }
+      @requirements << entry unless @requirements.include?(entry)
+    end
+
     # この呼び出し 1 件分の method_observation レコードを構築する。
     #
     # session / captured_at は観測コンテキストを知る JSONL ライターが付与する
@@ -75,13 +92,13 @@ module Ethotrace
     private
 
     # 蓄積された観測チャネル。固定メタデータと分け、可変部だけをまとめる。
-    # params / requirements は後続マイルストーンが埋めるまで空配列を置く。
+    # params(引数プロトコル)は後続マイルストーンが埋めるまで空配列を置く。
     def observed_channels
       {
         params: [],
         return: { classes_seen: @return_classes.dup },
         errors: @escaped_errors.map(&:dup),
-        requirements: [],
+        requirements: @requirements.map(&:dup),
         samples: 1
       }
     end
