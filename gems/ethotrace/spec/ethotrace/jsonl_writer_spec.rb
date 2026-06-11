@@ -81,6 +81,9 @@ RSpec.describe Ethotrace::JSONLWriter do
 
       c1 = Ethotrace::CallContext.new(owner: "Order", name: :total_price, kind: :instance,
                                       site: { path: "app/models/order.rb", line: 12 })
+      c1.record_argument(0, [1, 2, 3], name: :items)
+      c1.record_protocol_call(0, :each, arity: 0, block: true)
+      c1.record_protocol_call(0, :size, arity: 0, block: false)
       c1.record_return(100)
       c1.record_escaped_exception(KeyError.new, origin: "inherited", from: "Hash#fetch")
       writer.call(c1)
