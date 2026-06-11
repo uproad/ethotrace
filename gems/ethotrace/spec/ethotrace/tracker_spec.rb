@@ -1,0 +1,94 @@
+# frozen_string_literal: true
+
+RSpec.describe Ethotrace::Tracker do
+  # 各 example の独立性を保つため、スタックを必ず破棄する。
+  after { described_class.reset }
+
+  def begin_call(name:, owner: "Order", kind: :instance, site: nil)
+    described_class.begin_call(owner: owner, name: name, kind: kind, site: site)
+  end
+
+  describe ".begin_call" do
+    it "returns a CallContext built from the descriptor" do
+      ctx = begin_call(owner: "Order", name: :total, kind: :instance,
+                       site: { path: "order.rb", line: 1 })
+      expect(ctx).to be_a(Ethotrace::CallContext)
+      expect([ctx.owner, ctx.name, ctx.kind, ctx.site])
+        .to eq(["Order", "total", :instance, { path: "order.rb", line: 1 }])
+    end
+
+    it "pushes the context onto the call stack" do
+      ctx = begin_call(name: :total)
+      expect(described_class.call_stack).to eq([ctx])
+      expect(described_class.current).to be(ctx)
+    end
+
+    it "stacks nested calls with the deepest as current" do
+      outer = begin_call(name: :outer)
+      inner = begin_call(name: :inner)
+      expect(described_class.call_stack).to eq([outer, inner])
+      expect(described_class.current).to be(inner)
+    end
+  end
+
+  describe ".end_call" do
+    it "pops the matching context and returns it" do
+      ctx = begin_call(name: :total)
+      expect(described_class.end_call(ctx)).to be(ctx)
+      expect(described_class.active?).to be(false)
+    end
+
+    it "unwinds nested calls in LIFO order" do
+      outer = begin_call(name: :outer)
+      inner = begin_call(name: :inner)
+      described_class.end_call(inner)
+      expect(described_class.current).to be(outer)
+      described_class.end_call(outer)
+      expect(described_class.active?).to be(false)
+    end
+
+    it "discards inner frames left behind on a mismatched unwind" do
+      outer = begin_call(name: :outer)
+      begin_call(name: :inner) # 取り残された内側フレーム
+      described_class.end_call(outer)
+      # outer 以降をまとめて破棄し、スタックをリークさせない。
+      expect(described_class.active?).to be(false)
+    end
+
+    it "is a no-op when the context is no longer on the stack" do
+      ctx = begin_call(name: :total)
+      described_class.end_call(ctx)
+      expect { described_class.end_call(ctx) }.not_to(change { described_class.call_stack.dup })
+    end
+  end
+
+  describe ".current / .active?" do
+    it "are nil/false with no active call" do
+      expect(described_class.current).to be_nil
+      expect(described_class.active?).to be(false)
+    end
+  end
+
+  describe "Thread/Fiber isolation" do
+    it "gives each thread an independent stack" do
+      begin_call(name: :total)
+      other = Thread.new { described_class.active? }.value
+      expect(other).to be(false)
+    end
+
+    it "gives each fiber an independent stack" do
+      begin_call(name: :total)
+      in_fiber = Fiber.new { Fiber.yield(described_class.active?) }.resume
+      # Thread.current[] は Fiber-local なので、別 Fiber は空のスタックを見る。
+      expect(in_fiber).to be(false)
+    end
+  end
+
+  describe ".reset" do
+    it "clears the current stack" do
+      begin_call(name: :total)
+      described_class.reset
+      expect(described_class.active?).to be(false)
+    end
+  end
+end

@@ -3,6 +3,7 @@
 require_relative "ethotrace/version"
 require_relative "ethotrace/reentry_guard"
 require_relative "ethotrace/call_context"
+require_relative "ethotrace/tracker"
 
 # Ethotrace — Ruby 向け動的型検査・シグネチャ解析システムの core。
 #
