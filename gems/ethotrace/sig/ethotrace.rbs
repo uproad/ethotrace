@@ -1,0 +1,9 @@
+module Ethotrace
+  VERSION: String
+
+  # gem 間の安定契約である JSONL 観測データのスキーマバージョン。
+  SCHEMA_VERSION: Integer
+
+  class Error < StandardError
+  end
+end
