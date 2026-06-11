@@ -63,6 +63,12 @@ module Ethotrace
         callable
       end
 
+      # 購読者を解除する(セッション終了時など)。
+      def unsubscribe(callable)
+        LOCK.synchronize { @subscribers.delete(callable) }
+        callable
+      end
+
       # 現在の購読者一覧(コピー)。
       def subscribers
         LOCK.synchronize { @subscribers.dup }
