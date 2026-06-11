@@ -57,6 +57,12 @@ RSpec.describe Ethotrace::CLI::ViewCommand do
     expect(out.string).to include("(none observed)")
   end
 
+  it "accepts the long forms --index and --method as aliases of -i / -m" do
+    path = fixture([observation(owner: "Order", name: "total", return_classes: ["Integer"])])
+    expect(run(path, "--index", "1")).to eq(0)
+    expect(out.string).to include("Order#total")
+  end
+
   it "returns 1 for an out-of-range --index" do
     path = fixture([observation(owner: "O", name: "m")])
     expect(run(path, "-i", "9")).to eq(1)

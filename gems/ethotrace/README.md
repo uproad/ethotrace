@@ -109,8 +109,8 @@ bundle exec ethotrace view tmp/ethotrace/*.jsonl
 常に表示し、M1 で未観測の `params` / `requirements` も枠だけ出す(最終形を見据えた表示)。
 
 ```bash
-bundle exec ethotrace view tmp/ethotrace/*.jsonl --index 2
-bundle exec ethotrace view tmp/ethotrace/*.jsonl --method "Order#total_price"
+bundle exec ethotrace view tmp/ethotrace/*.jsonl -i 2   # --index 2
+bundle exec ethotrace view tmp/ethotrace/*.jsonl -m "Order#total_price"  # --method
 ```
 
 ```text

@@ -25,7 +25,7 @@ module Ethotrace
         end
 
         @out.puts
-        @out.puts(@color.paint('詳細: ethotrace view <files> --index N  (または --method "Owner#name")', :dim))
+        @out.puts(@color.paint('詳細: ethotrace view <files> -i N  (または -m "Owner#name")', :dim))
       end
 
       # 1 メソッドの全情報。三チャネル + 引数プロトコルのセクションを常に出す。
