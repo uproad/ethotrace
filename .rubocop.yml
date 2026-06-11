@@ -8,6 +8,11 @@ AllCops:
     - "gems/*/vendor/**/*"
     - "gems/*/bin/**/*"
 
+# spec はブロックが構造上長くなるため BlockLength の対象外にする。
+Metrics/BlockLength:
+  Exclude:
+    - "gems/*/spec/**/*"
+
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
