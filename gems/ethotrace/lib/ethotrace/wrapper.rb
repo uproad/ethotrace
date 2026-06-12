@@ -89,10 +89,16 @@ module Ethotrace
       # 開始・記録・終了を取り回す。生成メソッドから呼ばれる。
       #
       # @param descriptor [Hash] begin_call へ渡す記述子。
-      def observe(descriptor, &)
+      # @param args [Array, nil] 位置引数の値(引数プロトコル観測の対象)。
+      # @param param_names [Array, nil] 位置引数に対応する仮引数名。
+      def observe(descriptor, args = nil, param_names = nil, &)
         context = bookkeep { Tracker.begin_call(**descriptor) }
         # 再入中(記録のネスト)、または記録の内部エラー時は素通しする。
         return yield if context.nil?
+
+        # super の前に引数を追跡登録し、本体実行中の TracePoint が引数オブジェクトへの
+        # 呼び出しを照合できるようにする(掃除は Tracker.end_call が担う)。
+        bookkeep { ArgumentTable.track(context, args, param_names || []) } if args
 
         run_observed(context, &)
       end

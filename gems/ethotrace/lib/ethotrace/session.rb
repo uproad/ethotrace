@@ -28,6 +28,8 @@ module Ethotrace
       AdapterRegistry.install
       writer = JSONLWriter.new(io, session: id, adapters: AdapterRegistry.names, options: options)
       Wrapper.subscribe(writer)
+      # 引数プロトコル観測の TracePoint を有効化する(:c_call はオプトイン)。
+      ProtocolTracer.enable(trace_c_call: options.fetch(:trace_c_call, false))
       AdapterRegistry.start_session(id)
       new(id: id, writer: writer)
     end
@@ -42,6 +44,7 @@ module Ethotrace
     def finish
       AdapterRegistry.end_session(@id)
       AdapterRegistry.uninstall
+      ProtocolTracer.disable
       Wrapper.unsubscribe(@writer)
       @writer.close
     end

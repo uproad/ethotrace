@@ -134,6 +134,94 @@ RSpec.describe Ethotrace::CallContext do
     end
   end
 
+  describe "#record_argument" do
+    it "records the observed class of an argument in classes_seen" do
+      ctx = build
+      ctx.record_argument(0, [1, 2], name: :items)
+      slot = ctx.to_observation[:params].first
+      expect(slot).to include(position: 0, name: "items", classes_seen: ["Array"])
+    end
+
+    it "keeps the parameter name once provided even on later nil-name calls" do
+      ctx = build
+      ctx.record_argument(0, [], name: :items)
+      ctx.record_protocol_call(0, :size, arity: 0, block: false)
+      expect(ctx.to_observation[:params].first[:name]).to eq("items")
+    end
+
+    it "unions classes_seen for the same position without duplicates" do
+      ctx = build
+      ctx.record_argument(0, 1, name: :value)
+      ctx.record_argument(0, "x", name: :value)
+      ctx.record_argument(0, 2, name: :value)
+      expect(ctx.to_observation[:params].first[:classes_seen]).to eq(%w[Integer String])
+    end
+
+    it "skips an argument whose class name is nil" do
+      ctx = build
+      ctx.record_argument(0, Class.new.new, name: :anon)
+      expect(ctx.to_observation[:params].first[:classes_seen]).to eq([])
+    end
+
+    it "is not fooled by an argument overriding #class" do
+      liar = Object.new
+      def liar.class = String
+      ctx = build
+      ctx.record_argument(0, liar, name: :obj)
+      expect(ctx.to_observation[:params].first[:classes_seen]).to eq(["Object"])
+    end
+  end
+
+  describe "#record_protocol_call" do
+    it "records a protocol entry with the (name, arity, block) grain" do
+      ctx = build
+      ctx.record_argument(0, [], name: :items)
+      ctx.record_protocol_call(0, :each, arity: 0, block: true)
+      expect(ctx.to_observation[:params].first[:protocol]).to eq(
+        [{ name: "each", arity: 0, block: true }]
+      )
+    end
+
+    it "deduplicates identical protocol entries" do
+      ctx = build
+      ctx.record_protocol_call(0, :size, arity: 0, block: false)
+      ctx.record_protocol_call(0, :size, arity: 0, block: false)
+      expect(ctx.to_observation[:params].first[:protocol].size).to eq(1)
+    end
+
+    it "keeps distinct entries differing only by arity or block" do
+      ctx = build
+      ctx.record_protocol_call(0, :fetch, arity: 1, block: false)
+      ctx.record_protocol_call(0, :fetch, arity: 1, block: true)
+      ctx.record_protocol_call(0, :fetch, arity: 2, block: false)
+      expect(ctx.to_observation[:params].first[:protocol].size).to eq(3)
+    end
+
+    it "creates a slot with a nil name when no argument was registered first" do
+      ctx = build
+      ctx.record_protocol_call(2, :call, arity: 0, block: false)
+      slot = ctx.to_observation[:params].first
+      expect(slot).to include(position: 2, name: nil, classes_seen: [])
+    end
+  end
+
+  describe "#to_observation params" do
+    it "orders params by position ascending" do
+      ctx = build
+      ctx.record_argument(2, :c, name: :third)
+      ctx.record_argument(0, :a, name: :first)
+      ctx.record_argument(1, :b, name: :second)
+      expect(ctx.to_observation[:params].map { |p| p[:position] }).to eq([0, 1, 2])
+    end
+
+    it "returns copies so callers cannot mutate internal protocol state" do
+      ctx = build
+      ctx.record_protocol_call(0, :each, arity: 0, block: true)
+      ctx.to_observation[:params].first[:protocol] << { name: "tampered" }
+      expect(ctx.to_observation[:params].first[:protocol].size).to eq(1)
+    end
+  end
+
   describe "#to_observation" do
     it "produces a schema-shaped method_observation record" do
       ctx = build(site: { path: "app/models/order.rb", line: 12 })

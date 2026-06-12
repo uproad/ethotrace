@@ -23,11 +23,11 @@ RSpec.describe Ethotrace::CLI::ViewCommand do
   end
 
   def observation(owner:, name:, kind: "instance", return_classes: [], errors: [],
-                  requirements: [], samples: 1)
+                  requirements: [], params: [], samples: 1)
     {
       schema_version: 1, type: "method_observation",
       method: { owner: owner, name: name, kind: kind },
-      site: nil, params: [], return: { classes_seen: return_classes },
+      site: nil, params: params, return: { classes_seen: return_classes },
       errors: errors, requirements: requirements, samples: samples, session: "s1"
     }
   end
@@ -62,6 +62,28 @@ RSpec.describe Ethotrace::CLI::ViewCommand do
     path = fixture([observation(owner: "Order", name: "total", return_classes: ["Integer"])])
     expect(run(path, "--index", "1")).to eq(0)
     expect(out.string).to include("Order#total")
+  end
+
+  it "renders the argument protocol in the detail view" do
+    params = [{
+      position: 0, name: "items",
+      protocol: [{ name: "each", arity: 0, block: true }, { name: "size", arity: 0, block: false }],
+      classes_seen: ["Array"]
+    }]
+    path = fixture([observation(owner: "Order", name: "total", params: params)])
+    expect(run(path, "-i", "1")).to eq(0)
+    expect(out.string).to include("args (protocol):")
+    expect(out.string).to include("[0] items : Array")
+    expect(out.string).to include("each(arity 0, block)")
+    expect(out.string).to include("size(arity 0)")
+  end
+
+  it "counts protocol entries in the summary args column" do
+    params = [{ position: 0, name: "items",
+                protocol: [{ name: "each", arity: 0, block: true }], classes_seen: ["Array"] }]
+    path = fixture([observation(owner: "Order", name: "total", params: params)])
+    expect(run(path)).to eq(0)
+    expect(out.string).to include("args: 1")
   end
 
   it "renders requirements in the detail view" do
