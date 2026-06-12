@@ -4,5 +4,42 @@ module Ethotrace
 
     class Error < Ethotrace::Error
     end
+
+    self.@session: Ethotrace::Session?
+
+    def self.setup: (?rspec: untyped) ?{ (Configuration) -> void } -> Configuration
+    def self.start: (Configuration) -> Ethotrace::Session
+    def self.finish: () -> void
+    def self.session: () -> Ethotrace::Session?
+    def self.session=: (Ethotrace::Session?) -> Ethotrace::Session?
+
+    class Configuration
+      attr_accessor output_dir: String
+      attr_reader options: Hash[Symbol, untyped]
+      attr_reader targets: Array[Target]
+      attr_writer session_id: String
+
+      def initialize: () -> void
+      def observe: (Module, ?methods: Array[Symbol]?, ?kind: Symbol) -> self
+      def session_id: () -> String
+      def output_path: () -> String
+      def adapters: () -> Array[Ethotrace::Adapter]
+    end
+
+    class Target
+      attr_reader klass: Module
+      attr_reader methods: Array[Symbol]?
+      attr_reader kind: Symbol
+      def method_specs: () -> Array[[ Symbol, Symbol ]]
+    end
+
+    class TargetAdapter < Ethotrace::Adapter
+      def initialize: (Array[Target]) -> void
+    end
+
+    module SessionRunner
+      def self.start: (Configuration) -> Ethotrace::Session
+      def self.finish: (Ethotrace::Session?) -> void
+    end
   end
 end
