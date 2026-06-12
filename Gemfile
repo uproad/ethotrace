@@ -5,6 +5,7 @@ source "https://rubygems.org"
 # モノレポ内の各 gem を path 参照する。
 # アダプタ gem(ethotrace-rspec 等)を追加したら gemspec 行をここに足す。
 gemspec path: "gems/ethotrace", name: "ethotrace"
+gemspec path: "gems/ethotrace-rspec", name: "ethotrace-rspec"
 
 group :development, :test do
   gem "benchmark-ips", require: false
