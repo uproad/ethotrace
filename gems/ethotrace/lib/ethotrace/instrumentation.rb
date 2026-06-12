@@ -18,9 +18,10 @@ module Ethotrace
     def install(klass, name, kind)
       target = prepend_target(klass, kind)
       descriptor = descriptor_for(klass, target, name, kind)
+      param_names = positional_param_names(target.instance_method(name))
       mod = Module.new
       mod.define_method(name) do |*args, **kw, &blk|
-        Ethotrace::Wrapper.observe(descriptor) { super(*args, **kw, &blk) }
+        Ethotrace::Wrapper.observe(descriptor, args, param_names) { super(*args, **kw, &blk) }
       end
       apply_visibility(mod, target, name)
       target.prepend(mod)
@@ -40,6 +41,15 @@ module Ethotrace
         kind: kind,
         site: site_of(target.instance_method(name))
       }
+    end
+
+    # 位置引数(position 0 起点)に対応する仮引数名を定義順に返す。引数プロトコル
+    # 観測で position と name を結びつけるために使う。`*rest` を超えた位置や匿名
+    # 引数の name は nil になる(position は ArgumentTable 側で補う)。
+    def positional_param_names(unbound)
+      unbound.parameters.filter_map do |kind, pname|
+        pname if %i[req opt].include?(kind)
+      end
     end
 
     # 元メソッドの可視性(private/protected)をラッパー側へ複製する。

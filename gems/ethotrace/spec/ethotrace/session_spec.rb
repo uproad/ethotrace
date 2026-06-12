@@ -80,5 +80,39 @@ RSpec.describe Ethotrace::Session do
       expect(io.string).not_to include("\"8\"")
       expect(io.string).to include("TAX_RATE")
     end
+
+    it "observes the argument protocol of an instrumented method" do
+      session = described_class.start(io, id: "e2e")
+
+      # 引数役: Ruby 定義メソッドを持つ(:c_call なしで観測できる)。
+      counter = Class.new { def tally = 1 }
+      klass = Class.new do
+        define_method(:run) { |item| item.tally }
+      end
+      Ethotrace::Wrapper.wrap(klass, :run)
+      klass.new.run(counter.new)
+
+      session.finish
+
+      observation = records.find { |r| r[:type] == "method_observation" && r[:method][:name] == "run" }
+      slot = observation[:params].first
+      expect(slot).to include(position: 0, name: "item")
+      expect(slot[:protocol]).to include(a_hash_including(name: "tally"))
+    end
+
+    it "observes C-method protocol only when trace_c_call is opted in" do
+      session = described_class.start(io, id: "e2e", options: { trace_c_call: true })
+      klass = Class.new do
+        define_method(:run) { |text| text.upcase }
+      end
+      Ethotrace::Wrapper.wrap(klass, :run)
+      klass.new.run(+"hi")
+
+      session.finish
+
+      observation = records.find { |r| r[:type] == "method_observation" && r[:method][:name] == "run" }
+      slot = observation[:params].first
+      expect(slot[:protocol].map { |e| e[:name] }).to include("upcase")
+    end
   end
 end
