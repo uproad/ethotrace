@@ -2,6 +2,7 @@
 
 require "ethotrace/rspec"
 require "tmpdir"
+require_relative "../support/instrumentation_isolation"
 
 RSpec.describe Ethotrace::RSpec do
   it "has a version number" do
@@ -13,6 +14,8 @@ RSpec.describe Ethotrace::RSpec do
   end
 
   describe ".setup" do
+    include_context "isolated instrumentation"
+
     # before/after フックの登録だけを記録する fake な RSpec config。
     let(:fake_rspec) do
       Class.new do

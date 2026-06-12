@@ -196,6 +196,21 @@ Order#total_price  (instance)
 
 色は TTY 出力時のみ付く(`NO_COLOR` または `--no-color` で無効化)。
 
+## CLI: 観測結果をマージする
+
+並列テストワーカーが吐いた複数の JSONL を `ethotrace merge` で 1 つへ統合する。`view` の
+表示用統合と異なり、こちらは errors の origin/from・requirements の detail・プロトコルの
+arity/block まで**データを一切捨てず**、`observations.jsonl` として書き出す。
+
+```bash
+# 統合して観測ストアへ(1 メソッド = 1 行の JSONL を維持 → 再マージ可能)
+bundle exec ethotrace merge tmp/ethotrace/*.jsonl -o ethotrace/observations.jsonl
+```
+
+`-o` を省略すると標準出力へ純粋な JSONL を流す(進捗・サマリは標準エラーへ出すのでパイプできる)。
+マージ後レコードはセッション ID を `sessions`(配列)へ正規化し、入力と同じ `method_observation`
+形を保つため、`observations.jsonl` 同士や新しい生ログと**再マージできる**(→ schema §7.1)。
+
 ## 構成要素(core)
 
 | 要素 | 役割 |
