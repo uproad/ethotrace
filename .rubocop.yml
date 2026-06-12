@@ -7,6 +7,9 @@ AllCops:
     - "tmp/**/*"
     - "gems/*/vendor/**/*"
     - "gems/*/bin/**/*"
+    # 教育用サンプル。単一ファイル完結や def アクセサ(C メソッド回避)など、
+    # デモの明快さを優先して意図的に Lint と異なる形を取る。
+    - "examples/**/*"
 
 # spec はブロックが構造上長くなるため BlockLength の対象外にする。
 Metrics/BlockLength:
