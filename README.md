@@ -31,7 +31,7 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](docs/sc
 | M0 | スキャフォールド + スキーマ v1 確定 | ✅ |
 | M1 | prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター(Success / Error チャネル) | ✅ |
 | M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO/Process)+ Requirements 帰属 + エフェクトスパン | ✅ |
-| M3 | TracePoint エンジン + 引数プロトコル観測 | 予定 |
+| M3 | TracePoint エンジン + 引数プロトコル観測 | ✅ |
 | M4 | `ethotrace-rspec` + マージ CLI | 予定 |
 | M5 | `ethotrace-rails`(Railtie / Notifications / Zeitwerk) | 予定 |
 | M6 | `ethotrace-mcp` + `ethotrace-rbs` | 予定 |

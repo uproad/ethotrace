@@ -22,13 +22,16 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](../../d
 | M0 | スキャフォールド + スキーマ v1 確定 | ✅ |
 | M1 | prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター | ✅ |
 | M2 | アダプタ API + stdlib アダプタ(ENV/Time/Random/IO/Process)+ Requirements 帰属 + エフェクトスパン | ✅ |
-| M3 | TracePoint エンジン + 引数プロトコル観測 | 予定 |
+| M3 | TracePoint エンジン + 引数プロトコル観測 | ✅ |
 | M4〜 | RSpec / マージ CLI / Rails / MCP / RBS | 予定 |
 
-現時点(M2)では三チャネルのうち **Success(戻り値クラス)**・**Error(エスケープ例外と
+現時点(M3)では三チャネルのうち **Success(戻り値クラス)**・**Error(エスケープ例外と
 direct/inherited 帰属)**・**Requirements(外部接触: `env.read`/`env.write`/`time.read`/
-`random.read`/`io.read`/`io.write`/`process.exec`)** を観測できる。引数プロトコル(`params`)は
-TracePoint エンジン(M3)で実装するまで出力スキーマ上は空配列のプレースホルダが入る。
+`random.read`/`io.read`/`io.write`/`process.exec`)** に加え、**引数プロトコル(`params`)** を
+観測できる。`Session` の配下では `TracePoint` で各実引数に対して実際に呼ばれたメソッド集合
+(`(name, arity, block)` 粒度)を記録し、`classes_seen`(観測された実クラス)も併記する。
+C 実装メソッド(`Array#each` など)は高コストのため既定では観測されず、`trace_c_call: true`
+オプトイン時のみ `params` に現れる。
 
 ## インストール
 
@@ -111,6 +114,41 @@ session.finish  # アダプタ終了通知・購読解除・出力先 close
 で区間を宣言すると、区間中の下位エフェクト(例: ソケットへの `io.write`)は畳み込まれて
 重複記録されない。
 
+### 引数プロトコルも観測する(M3)
+
+`Session` 配下では引数プロトコル(`params`)も自動で観測される。被計装メソッドの実行中に
+`TracePoint` が各実引数オブジェクトへの呼び出しを捕捉し、「この引数に対して実際に呼ばれた
+メソッド集合」を記録する。公称型ではなく**振る舞い(プロトコル)**で引数を特徴づける。
+
+```ruby
+session = Ethotrace::Session.start($stdout, id: "demo-pid#{Process.pid}")
+
+class Greeter
+  def greet(user) = "hi, #{user.name.upcase}"  # user に name が呼ばれる
+end
+Ethotrace::Wrapper.wrap(Greeter, :greet)
+Greeter.new.greet(some_user)
+
+session.finish
+```
+
+`greet` の観測には、第 0 引数 `user` のプロトコルが記録される:
+
+```json
+{
+  "params": [
+    { "position": 0, "name": "user",
+      "protocol": [{ "name": "name", "arity": 0, "block": false }],
+      "classes_seen": ["User"] }
+  ]
+}
+```
+
+> **値共有 immediate**(`Integer` / `Symbol` / `Float` / `true` / `false` / `nil`)は object_id が
+> 値で共有され誤帰属するため、`classes_seen` は記録するがプロトコル追跡の対象外(v1 の割り切り)。
+> **C 実装メソッド**(`String#upcase` など)は既定では `protocol` に現れず、
+> `Session.start(io, options: { trace_c_call: true })` でオプトインしたときのみ観測される(高コストのため)。
+
 ## CLI: 観測結果をターミナルで見る
 
 書き出した JSONL は `ethotrace view` でさっと確認できる(開発者がローカルで見る用途)。
@@ -130,7 +168,7 @@ bundle exec ethotrace view tmp/ethotrace/*.jsonl
 ```
 
 詳細(全情報)は index か メソッド名で開く。三チャネル + 引数プロトコルのセクションは
-常に表示し、M1 で未観測の `params` / `requirements` も枠だけ出す(最終形を見据えた表示)。
+常に表示する(観測が無いチャネルは枠だけ出す)。
 
 ```bash
 bundle exec ethotrace view tmp/ethotrace/*.jsonl -i 2   # --index 2
@@ -163,8 +201,10 @@ Order#total_price  (instance)
 | 要素 | 役割 |
 |---|---|
 | `ReentryGuard` | トレーサ自身のコードがフックを再発火させる無限再帰を防ぐ Thread/Fiber-local フラグ。 |
-| `CallContext` | 1 回の呼び出しに対応する観測アキュムレータ。Success / Error を蓄積し `#to_observation` を生成。 |
+| `CallContext` | 1 回の呼び出しに対応する観測アキュムレータ。Success / Error / Requirements / 引数プロトコルを蓄積し `#to_observation` を生成。 |
 | `Tracker` | Thread/Fiber-local のコールスタック。`begin_call` / `end_call` と例外の direct/inherited 帰属。 |
+| `ArgumentTable` | 実引数の object_id を「どの context の第何引数か」で追跡する Thread/Fiber-local テーブル。`end_call` で必ず掃除する。 |
+| `ProtocolTracer` | `TracePoint`(`:call`、`:c_call` はオプトイン)で引数オブジェクトへの呼び出しを捕捉し、プロトコルへ加算する観測エンジン。 |
 | `Instrumentation` | 横取りモジュールの生成・prepend・記述子算出(可視性も保存)という計装の物理機構。 |
 | `Wrapper` | 計装レジストリ(二重 wrap 禁止)・観測ランタイム・購読者の継ぎ目を束ねるオーケストレーション。 |
 | `JSONLWriter` | `session` / `method_observation` レコードを JSON Lines として追記出力するシンク。 |
