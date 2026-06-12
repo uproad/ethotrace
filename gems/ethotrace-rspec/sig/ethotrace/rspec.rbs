@@ -1,0 +1,8 @@
+module Ethotrace
+  module RSpec
+    VERSION: String
+
+    class Error < Ethotrace::Error
+    end
+  end
+end
