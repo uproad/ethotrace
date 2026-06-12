@@ -31,9 +31,20 @@ RSpec.describe Ethotrace::CLI do
     expect(err.string).to match(/unknown command: frobnicate/)
   end
 
+  it "lists the merge command in usage" do
+    start
+    expect(out.string).to include("merge")
+  end
+
   it "dispatches to the view command" do
     # 入力ファイルなしの view はステータス 1 を返す(委譲できている証跡)。
     expect(start("view")).to eq(1)
+    expect(err.string).to match(/no input files/)
+  end
+
+  it "dispatches to the merge command" do
+    # 入力ファイルなしの merge もステータス 1 を返す(委譲できている証跡)。
+    expect(start("merge")).to eq(1)
     expect(err.string).to match(/no input files/)
   end
 end
