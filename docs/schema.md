@@ -21,7 +21,8 @@
 - 文字エンコーディングは UTF-8。
 - 既定のファイル配置:
   - セッション単位の生ログ: `tmp/ethotrace/<session_id>.jsonl`
-  - マージ後の確定ストア: `ethotrace/observations.json`(正規化形式は将来決定。§9 参照)
+  - マージ後の確定ストア: `ethotrace/observations.jsonl`(**JSON Lines を維持**。1 メソッド =
+    1 行で追記・再マージ可能。§7 参照)
 
 ## 2. 共通フィールド
 
@@ -44,7 +45,7 @@
   "started_at": "2026-06-11T12:00:00+09:00",
   "ruby_version": "3.4.1",
   "ethotrace_version": "0.0.1",
-  "adapters": ["stdlib", "rspec"],
+  "adapters": ["stdlib", "rspec-targets"],
   "options": { "trace_c_call": false, "record_sql_source": false }
 }
 ```
@@ -190,11 +191,42 @@
 ## 7. マージ意味論
 
 複数セッションの `method_observation` レコードは `(method.owner, method.name, method.kind)` をキーに統合する。
+`ethotrace merge <files...> -o ethotrace/observations.jsonl` がこの統合を行う。
 
 - `params[].protocol` / `errors` / `requirements` / `classes_seen` は**和集合**で統合する。
 - `samples` は**加算**する。
+- `site` は最初に観測された非 null を採る。
 - 異なる `schema_version` の混在はマージ CLI が検出して警告する。
 - v1 では和集合のみ。呼び出しパターン別のオーバーロード分割は将来拡張(§9)。
+
+### 7.1 マージ後レコードの形
+
+マージ結果も `type: "method_observation"` 形を保つ。ただしセッション文脈の差は次のとおり:
+
+| フィールド | 生ログ(単一観測) | マージ後 |
+|---|---|---|
+| `session` | string(単一セッション ID) | — (置き換わる) |
+| `sessions` | — | array<string>(寄与した全セッション ID。ソート済み) |
+| `captured_at` | string(観測時刻) | — (落とす) |
+
+マージ後レコードは入力と同じ `method_observation` 形を保つため、**再びマージ可能**である
+(`observations.jsonl` 同士、あるいは新しい生ログとの再マージができる)。マージ実装は単一観測の
+`session`(string)と既マージの `sessions`(array)の双方を入力として受け付ける。
+
+```json
+{
+  "schema_version": 1,
+  "type": "method_observation",
+  "method": { "owner": "Order", "name": "total_price", "kind": "instance" },
+  "site": { "path": "app/models/order.rb", "line": 12 },
+  "params": [ /* … 和集合 … */ ],
+  "return": { "classes_seen": ["Integer", "NilClass"] },
+  "errors": [ /* … 和集合 … */ ],
+  "requirements": [ /* … 和集合 … */ ],
+  "samples": 42,
+  "sessions": ["rspec-w1-pid4242", "rspec-w2-pid4243"]
+}
+```
 
 ## 8. 既知の制約(出力に明示すること)
 
@@ -206,6 +238,7 @@
 ## 9. 未決定事項(v1 では保留)
 
 - オーバーロード分割(呼び出しパターン別)を生データに残すか、和集合のみか。
-- マージ後の正規化ストア形式(単一 JSON / SQLite)。MCP の応答性能要件次第。
+- マージ後の高速クエリ用ストア形式(SQLite 等)。確定形式は JSONL(`observations.jsonl`)だが、
+  MCP の応答性能要件次第で派生インデックスを別途持つ可能性がある。
 - ブロック引数(yield 値)のプロトコル観測 — v2 候補。
 - 戻り値オブジェクトの呼び出し元プロトコル観測 — v2 候補。

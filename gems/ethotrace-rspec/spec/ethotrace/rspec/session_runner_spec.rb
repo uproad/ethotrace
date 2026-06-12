@@ -3,17 +3,22 @@
 require "ethotrace/rspec"
 require "tmpdir"
 require "json"
-
-# 観測対象のフィクスチャ。SessionRunner が実セッションで観測する。
-class SessionRunnerFixture
-  def shout(word)
-    word.to_s.upcase
-  end
-end
+require_relative "../../support/instrumentation_isolation"
 
 RSpec.describe Ethotrace::RSpec::SessionRunner do
+  include_context "isolated instrumentation"
+
   around do |example|
     Dir.mktmpdir { |dir| @dir = dir and example.run }
+  end
+
+  # 観測対象は例ごとに新鮮な名前付きクラスを使う(再 wrap の二重化を避ける)。
+  before do
+    stub_const("SessionRunnerFixture", Class.new do
+      def shout(word)
+        word.to_s.upcase
+      end
+    end)
   end
 
   def config_for(klass, **)
