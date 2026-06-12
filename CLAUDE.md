@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Ethotrace** は Ruby 向け動的型検査・シグネチャ解析システム。公称型(型名)ではなく、テスト実行中のメソッド呼び出しを監視して「振る舞い(プロトコル)」「伝播例外」「実行環境要件(Requirements)」を三チャネルで記録する。
 
-設計思想: Effect-TS の `Effect<Success, Error, Requirements>` モデルに着想を得た三チャネル観測。詳細は `ethotrace-design-handoff.md` を参照。
+設計思想: Effect-TS の `Effect<Success, Error, Requirements>` モデルに着想を得た三チャネル観測。詳細は `docs/ethotrace-design-handoff-v2.md` を参照(旧版は `docs/ethotrace-design-handoff-v1.md`。v2 で自己適用・隔離戦略・マイルストーン順序を改定)。
 
 ## Gem 構成(モノレポ)
 
@@ -82,17 +82,23 @@ gem 間の互換性は Ruby API ではなく `schema_version` 付き JSONL ス�
 
 6. **機微情報を記録しない**: ENV の value は記録しない(key のみ)。SQL 原文は既定 OFF。
 
+7. **自己適用は専用の隔離戦略で行う**: 再入ガード(ルール1)は「計装機構そのものが計装対象になる」自己言及を防げない。core は隔離を差し替え可能な isolation strategy(`NullIsolation` / `BoxIsolation` / `Stage0Bootstrap`)として実装し、Ruby::Box には依存しない。計装パスには自身の名前空間を除外する deny-list を defense-in-depth として常設する(設計資料 §4.8)。
+
 ## 実装ロードマップ
 
-- **M0** スキャフォールド + スキーマ v1 確定
-- **M1** prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター
-- **M2** アダプタ API + stdlib アダプタ(ENV/Time/Random/IO) + 帰属機構 + エフェクトスパン
-- **M3** TracePoint エンジン + 引数プロトコル観測
-- **M4** ethotrace-rspec + マージ CLI
-- **M5** ethotrace-rails (Railtie / Notifications / Zeitwerk)
-- **M6** ethotrace-mcp + ethotrace-rbs
+順序の意図(v2 で改定): **M4 完了時点で「RSpec でテストされている Ethotrace 自身」が最初の実用検査対象になる**ため、M5 で自己適用(self-hosting)を達成し、M6 で MCP を**先に**作る。これにより以降の開発は Claude Code が MCP 経由で Ethotrace の自己観測結果(各メソッドの規約・例外・Requirements)を参照しながら進む——ツールが自分自身の開発を支援するブートストラップループに入る。Rails アダプタ以降はこのループの恩恵を受けて実装する(設計資料 §9)。
 
-各マイルストーン末でテストグリーンを確認してからコミットすること。
+- **M0** スキャフォールド + スキーマ v1 確定 ✅
+- **M1** prepend ラッパー + Tracker + CallContext + 再入ガード + JSONL ライター ✅
+- **M2** アダプタ API + stdlib アダプタ(ENV/Time/Random/IO) + 帰属機構 + エフェクトスパン ✅
+- **M3** TracePoint エンジン + 引数プロトコル観測 ✅
+- **M4** ethotrace-rspec + マージ CLI ✅
+- **M5** 自己適用(self-hosting)+ 隔離戦略: isolation strategy 抽象(`NullIsolation` / `BoxIsolation` / `Stage0Bootstrap`)、collector/probe 分離、検証実験 E1〜E6(設計資料 §4.8)、CI dogfooding ジョブ(Ruby 4.0 + `RUBY_BOX=1`、experimental のため allow-failure)
+- **M6** ethotrace-mcp(ブートストラップループの起点。自己観測データを読むクエリを公開し、以降の開発ワークフローに組み込む)
+- **M7** ethotrace-rails (Railtie / Notifications / Zeitwerk。BoxIsolation 併用は当面サポート外、`NullIsolation` で解析)
+- **M8** ethotrace-rbs(protocol → RBS `interface` 投影。例外・Requirements は投影不可のため欠落を明記)
+
+各マイルストーン末でテストグリーンを確認してからコミットすること。**M6 完了後は開発サイクルに自己観測を組み込む**: テスト実行 → `ethotrace merge` で自己観測更新 → 実装/リファクタ前に `ethotrace-mcp` で対象メソッドの規約・例外・Requirements を確認、というループを標準ワークフローとする。
 
 ## Git ワークフロー(ブランチ運用)
 
@@ -104,7 +110,7 @@ main                          # 安定版。milestone ブランチから統合�
     └ feature/<topic>         # 機能単位の作業ブランチ
 ```
 
-- **ロードマップブランチ**: `milestone/` プレフィックス + マイルストーンID(例: `milestone/m0-scaffold`, `milestone/m1-success-error`)。M0〜M6 ごとに `main` から切る。
+- **ロードマップブランチ**: `milestone/` プレフィックス + マイルストーンID(例: `milestone/m0-scaffold`, `milestone/m1-success-error`)。M0〜M8 ごとに `main` から切る。
 - **feature ブランチ**: `feature/<topic>`。機能単位で当該 `milestone/*` から切り、**意味単位**でコミットする。
 - **document ブランチ**: マイルストーンと無関係なドキュメント等の変更は `document`(または `document/<topic>`)ブランチを切り、PR で `main` にマージする。
 - マージ方向: `feature/*` → `milestone/*` で作業単位を区切り、マイルストーン完了後に `milestone/*` → `main`。
@@ -142,6 +148,17 @@ main                          # 安定版。milestone ブランチから統合�
 - git 設定はリポジトリローカルに適用済み(`commit.gpgsign=true` / `tag.gpgsign=true` /
   `gpg.format=ssh`)。**新規コミットは自動的に署名される**。
 - 既存コミットを再署名する必要がある場合は `git rebase --exec "git commit --amend --no-edit -S" <base>` を使う。
+
+### コミット・PR 運用(必須)
+
+- コミットと PR の運用は `docs/commit-guidelines.md` に**必ず**従う。
+- 要点: **1 PR = 1 機能単位、1 コミット = 1 意味単位**。作業前にコミット計画を立て、
+  意味単位が完成するたびにコミットする。**最後の一括コミットは禁止**。
+- 全コミットで**テストグリーン + ビルド可能**を維持する(`git bisect` 可能性。コミット前にテスト実行)。
+- 振る舞いの変更とリファクタ、機械的変更と手書き変更、依存追加とその利用は**コミットを分離**する。
+- コミットメッセージは Conventional Commits(`feat`/`fix`/`refactor`/`test`/`docs`/`chore`/`perf`/`ci` +
+  scope は gem 名短縮形)。件名は「何をしたか」、本文に Why を書く。
+- マージは **merge commit 方式のみ**(squash / rebase merge 禁止。コミットの物語を資産として残す)。
 
 ## テスト戦略
 
