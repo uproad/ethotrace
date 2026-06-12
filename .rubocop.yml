@@ -13,6 +13,15 @@ Metrics/BlockLength:
   Exclude:
     - "gems/*/spec/**/*"
 
+# 複数行にまたがる Hash / 配列 / heredoc リテラルは 1 行扱いで数える。
+# レコード構築は 1 行 1 キーで書く方が読みやすく、行数の水増しで
+# メソッドを不自然に分割させない(キーの羅列は分岐の複雑さではない)。
+Metrics/MethodLength:
+  CountAsOne:
+    - array
+    - hash
+    - heredoc
+
 # キーワード引数は名前付きで順序非依存のため、過多引数の弊害(順序間違い)が
 # 起きない。本数のカウント対象から外す。
 Metrics/ParameterLists:
