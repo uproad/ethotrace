@@ -8,7 +8,7 @@ require "fileutils"
 module Ethotrace
   # 観測結果を JSON Lines として書き出すシンク。
   #
-  # 生成時に `session` レコードを 1 行出力し、その後 {Wrapper.subscribe} の
+  # 生成時に `session` レコードを 1 行出力し、その後 {Collector.subscribe} の
   # 購読者として渡されると、完了した {CallContext} ごとに `method_observation`
   # レコードを 1 行追記する。スキーマは docs/schema.md(schema_version 1)が正。
   #

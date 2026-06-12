@@ -30,8 +30,8 @@ module Ethotrace
       # probe(アダプタの prepend フック)の設置先は隔離戦略に委ねる。
       isolation.install_probe(AdapterRegistry)
       writer = JSONLWriter.new(io, session: id, adapters: AdapterRegistry.names, options: options)
-      # collector 側: 観測イベントの購読は常に root(同一プロセス)で行う。
-      Wrapper.subscribe(writer)
+      # collector 側: 観測の sink は常に root(同一プロセス)で購読する。
+      Collector.subscribe(writer)
       # 引数プロトコル観測の TracePoint は root 側で有効化する(box を越境して観測可。
       # :c_call はオプトイン)。隔離戦略によらず常に root。
       ProtocolTracer.enable(trace_c_call: options.fetch(:trace_c_call, false))
@@ -51,7 +51,7 @@ module Ethotrace
       AdapterRegistry.end_session(@id)
       @isolation.uninstall_probe(AdapterRegistry)
       ProtocolTracer.disable
-      Wrapper.unsubscribe(@writer)
+      Collector.unsubscribe(@writer)
       @writer.close
     end
   end

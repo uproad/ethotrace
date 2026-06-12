@@ -7,6 +7,7 @@ RSpec.describe Ethotrace::Session do
 
   before do
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::AdapterRegistry.reset!
     Ethotrace::Tracker.reset
   end
@@ -14,6 +15,7 @@ RSpec.describe Ethotrace::Session do
   after do
     Ethotrace::Adapters::Stdlib.disable
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::AdapterRegistry.reset!
     Ethotrace::Tracker.reset
   end

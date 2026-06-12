@@ -3,10 +3,14 @@
 RSpec.describe Ethotrace::Instrumenter do
   subject(:instrumenter) { described_class.new }
 
-  before { Ethotrace::Wrapper.reset! }
+  before do
+    Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
+  end
 
   after do
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::Tracker.reset
   end
 
