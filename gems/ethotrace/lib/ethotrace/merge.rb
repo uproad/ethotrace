@@ -74,12 +74,16 @@ module Ethotrace
 
     def self.build(group)
       {
-        schema_version: SCHEMA_VERSION, type: "method_observation",
-        method: group[:method], site: group[:site],
+        schema_version: SCHEMA_VERSION,
+        type: "method_observation",
+        method: group[:method],
+        site: group[:site],
         params: group[:params].keys.sort.map { |position| group[:params][position] },
         return: { classes_seen: group[:return_classes] },
-        errors: group[:errors], requirements: group[:requirements],
-        samples: group[:samples], sessions: group[:sessions].sort
+        errors: group[:errors],
+        requirements: group[:requirements],
+        samples: group[:samples],
+        sessions: group[:sessions].sort
       }
     end
 
