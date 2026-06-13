@@ -13,6 +13,7 @@ require_relative "ethotrace/instrumenter"
 require_relative "ethotrace/adapter"
 require_relative "ethotrace/adapter_registry"
 require_relative "ethotrace/adapters/stdlib"
+require_relative "ethotrace/isolation"
 require_relative "ethotrace/session"
 require_relative "ethotrace/merge"
 
