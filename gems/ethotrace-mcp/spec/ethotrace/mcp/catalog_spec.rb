@@ -78,4 +78,102 @@ RSpec.describe Ethotrace::MCP::Catalog do
       expect(catalog.methods.map { |r| r[:method][:owner] }).to contain_exactly("A", "B")
     end
   end
+
+  # 規約クエリ(設計資料 §9 の MCP クエリ群)。すべて method_observation 形の
+  # レコード配列、または文字列配列を返す純データである。
+  describe "contract queries" do
+    let(:env_read) { { kind: "env.read", write: false, direct: true, from: nil, detail: { key: "TAX" } } }
+    let(:time_read) { { kind: "time.read", write: false, direct: true, from: nil, detail: {} } }
+    let(:db_query) { { kind: "db.query", write: false, direct: false, from: "Item#price", detail: {} } }
+    let(:key_error) { { class: "KeyError", origin: "inherited", from: "Hash#fetch" } }
+    let(:arg_error) { { class: "ArgumentError", origin: "direct", from: nil } }
+
+    subject(:catalog) do
+      described_class.new(
+        [
+          observation(owner: "Pure", name: "add"), # requirements 空
+          observation(owner: "Clock", name: "now", requirements: [time_read]),
+          observation(owner: "Config", name: "rate", requirements: [env_read], errors: [key_error]),
+          observation(owner: "Repo", name: "fetch", requirements: [db_query], errors: [arg_error])
+        ]
+      )
+    end
+
+    describe "#pure_methods" do
+      it "returns only methods with no requirements (R=∅)" do
+        expect(catalog.pure_methods.map { |r| r[:method][:name] }).to contain_exactly("add")
+      end
+    end
+
+    describe "#flaky_suspects" do
+      it "returns methods touching nondeterministic requirements by default" do
+        expect(catalog.flaky_suspects.map { |r| r[:method][:owner] }).to contain_exactly("Clock")
+      end
+
+      it "honours a custom set of suspect kinds" do
+        expect(catalog.flaky_suspects(kinds: ["db.query"]).map { |r| r[:method][:owner] })
+          .to contain_exactly("Repo")
+      end
+    end
+
+    describe "#requiring" do
+      it "returns methods touching a given effect vocabulary" do
+        expect(catalog.requiring(kind: "db.query").map { |r| r[:method][:owner] })
+          .to contain_exactly("Repo")
+      end
+
+      it "returns [] when no method touches the effect" do
+        expect(catalog.requiring(kind: "http.request")).to eq([])
+      end
+    end
+
+    describe "#raisers" do
+      it "returns every method whose Error channel is non-empty" do
+        expect(catalog.raisers.map { |r| r[:method][:owner] }).to contain_exactly("Config", "Repo")
+      end
+
+      it "filters by a specific exception class when given" do
+        expect(catalog.raisers(exception: "KeyError").map { |r| r[:method][:owner] })
+          .to contain_exactly("Config")
+      end
+    end
+
+    describe "#exceptions_of" do
+      it "lists the exception classes a method can escape" do
+        expect(catalog.exceptions_of(owner: "Config", name: "rate")).to contain_exactly("KeyError")
+      end
+
+      it "returns nil for an unobserved method" do
+        expect(catalog.exceptions_of(owner: "Config", name: "missing")).to be_nil
+      end
+    end
+
+    describe "#param_protocol" do
+      let(:items_param) do
+        {
+          position: 0,
+          name: "items",
+          protocol: [{ name: "each", arity: 0, block: true }, { name: "size", arity: 0, block: false }],
+          classes_seen: ["Array"]
+        }
+      end
+
+      subject(:catalog) do
+        described_class.new([observation(owner: "Order", name: "total", params: [items_param])])
+      end
+
+      it "returns the observed protocol for a given argument position" do
+        expect(catalog.param_protocol(owner: "Order", name: "total", position: 0))
+          .to eq(items_param[:protocol])
+      end
+
+      it "returns nil for an unobserved argument position" do
+        expect(catalog.param_protocol(owner: "Order", name: "total", position: 9)).to be_nil
+      end
+
+      it "returns nil for an unobserved method" do
+        expect(catalog.param_protocol(owner: "Order", name: "missing", position: 0)).to be_nil
+      end
+    end
+  end
 end
