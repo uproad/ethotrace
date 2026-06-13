@@ -50,3 +50,6 @@ module Ethotrace
     end
   end
 end
+
+# box 内グルー({Isolation::BoxBridge})。Box が無くても無害にロードできる純粋な glue。
+require_relative "isolation/box_bridge"
