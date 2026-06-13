@@ -1,0 +1,5 @@
+module Ethotrace
+  module MCP
+    VERSION: String
+  end
+end
