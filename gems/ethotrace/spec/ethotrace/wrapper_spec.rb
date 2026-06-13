@@ -194,4 +194,30 @@ RSpec.describe Ethotrace::Wrapper do
       expect(result).to eq(:ok)
     end
   end
+
+  # 自己適用の defense-in-depth: 記録の活性パスにある自身のクラスは計装を拒む
+  # (設計資料 §4.8 / §8-13)。名前ベースなので box 内の同名クラスにも効く。
+  describe "self-instrumentation deny-list" do
+    it "refuses to wrap the recording machinery in its own namespace" do
+      expect(described_class.wrap(Ethotrace::Tracker, :begin_call, kind: :singleton)).to be(false)
+      expect(described_class.wrap(Ethotrace::CallContext, :record_return)).to be(false)
+      expect(described_class.instrumented?(Ethotrace::Tracker, :begin_call, kind: :singleton)).to be(false)
+    end
+
+    it "denies by name so a same-named class in another space is also excluded" do
+      # 別空間(box)の同名クラスを模す。後片付けで触れない denied 名を使う。
+      doppelganger = Class.new { def call = nil }
+      stub_const("Ethotrace::ProtocolTracer", doppelganger)
+      expect(described_class.wrap(doppelganger, :call)).to be(false)
+    end
+
+    it "still allows wrapping Ethotrace classes outside the recording path" do
+      # Merge / Session 等の記録パス外は自己適用で観測対象にできる。実 Merge を wrap すると
+      # prepend が残りスイートを汚すため、述語の確認 + throwaway クラスの計装で検証する。
+      expect(described_class.self_denied?(Ethotrace::Merge)).to be(false)
+      sample = Class.new { def run = :ok }
+      stub_const("Ethotrace::SampleTarget", sample)
+      expect(described_class.wrap(sample, :run)).to be(true)
+    end
+  end
 end
