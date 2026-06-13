@@ -5,6 +5,8 @@ require_relative "mcp/version"
 require_relative "mcp/catalog"
 require_relative "mcp/tools"
 require_relative "mcp/server"
+require_relative "mcp/stdio"
+require_relative "mcp/cli"
 
 module Ethotrace
   # 自己観測データ(`observations.jsonl`)を MCP サーバとして公開するデータ消費者。
