@@ -8,8 +8,9 @@
 # モノレポ: gem 個別の Gemfile.lock は追跡せず、ルートで集約管理する
 gems/*/Gemfile.lock
 
-# Ethotrace の観測生ログ出力先
+# Ethotrace の観測生ログ出力先・マージ済みストア(再生成可能なため追跡しない)
 /tmp/ethotrace/
+/ethotrace/
 /coverage/
 /InstalledFiles
 /pkg/
