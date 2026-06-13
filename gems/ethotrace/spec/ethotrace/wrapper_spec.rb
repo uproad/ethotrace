@@ -2,18 +2,25 @@
 
 RSpec.describe Ethotrace::Wrapper do
   # prepend は取り消せないため、各 example は毎回**新しい無名クラス**を計装する。
-  # レジストリ・購読者・警告フラグは reset! で初期化し、コールスタックも掃除する。
-  before { described_class.reset! }
+  # 計装レジストリ(Wrapper)・購読者(Collector)・警告フラグ(Diagnostics)を
+  # reset! で初期化し、コールスタック(Tracker)も掃除する。
+  before do
+    described_class.reset!
+    Ethotrace::Collector.reset!
+    Ethotrace::Diagnostics.reset!
+  end
 
   after do
     described_class.reset!
+    Ethotrace::Collector.reset!
+    Ethotrace::Diagnostics.reset!
     Ethotrace::Tracker.reset
   end
 
-  # 完了した観測レコードを集める購読者。
+  # 完了した観測レコードを集める購読者(sink は Collector が持つ)。
   let(:observations) { [] }
 
-  before { described_class.subscribe(->(ctx) { observations << ctx.to_observation }) }
+  before { Ethotrace::Collector.subscribe(->(ctx) { observations << ctx.to_observation }) }
 
   def last_observation
     observations.last
@@ -178,7 +185,7 @@ RSpec.describe Ethotrace::Wrapper do
 
   describe "fail-safe (内部エラーをユーザーへ伝播させない)" do
     it "does not let a subscriber error break the user call, and warns once" do
-      described_class.subscribe(->(_ctx) { raise "subscriber boom" })
+      Ethotrace::Collector.subscribe(->(_ctx) { raise "subscriber boom" })
       klass = Class.new { def value = :ok }
       described_class.wrap(klass, :value)
 
