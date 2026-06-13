@@ -3,16 +3,20 @@
 # エスケープ例外の direct / inherited 帰属を、実際の prepend ラッパーを通した
 # ネスト呼び出しで検証する(Tracker.record_escape の結線を end-to-end で確認)。
 RSpec.describe "error attribution through the wrapper" do
-  before { Ethotrace::Wrapper.reset! }
+  before do
+    Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
+  end
 
   after do
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::Tracker.reset
   end
 
   let(:observations) { [] }
 
-  before { Ethotrace::Wrapper.subscribe(->(ctx) { observations << ctx.to_observation }) }
+  before { Ethotrace::Collector.subscribe(->(ctx) { observations << ctx.to_observation }) }
 
   # 観測レコードを method 名で引けるようにする。
   def errors_by_method

@@ -22,30 +22,36 @@ module Ethotrace
     # @param id [String] セッション識別子(並列実行で一意化)。
     # @param adapters [Array<Adapter>, nil] 有効化するアダプタ(nil なら stdlib のみ)。
     # @param options [Hash] 観測オプション(trace_c_call / record_sql_source 等)。
+    # @param isolation [Isolation::Strategy] probe の設置先を決める隔離戦略
+    #   (既定は {Isolation::Null} = probe・collector 同一空間)。
     # @return [Session]
-    def self.start(io, id: "ethotrace-pid#{Process.pid}", adapters: nil, options: {})
+    def self.start(io, id: "ethotrace-pid#{Process.pid}", adapters: nil, options: {}, isolation: Isolation::Null.new)
       (adapters || [Adapters::Stdlib.new]).each { |adapter| AdapterRegistry.register(adapter) }
-      AdapterRegistry.install
+      # probe(アダプタの prepend フック)の設置先は隔離戦略に委ねる。
+      isolation.install_probe(AdapterRegistry)
       writer = JSONLWriter.new(io, session: id, adapters: AdapterRegistry.names, options: options)
-      Wrapper.subscribe(writer)
-      # 引数プロトコル観測の TracePoint を有効化する(:c_call はオプトイン)。
+      # collector 側: 観測の sink は常に root(同一プロセス)で購読する。
+      Collector.subscribe(writer)
+      # 引数プロトコル観測の TracePoint は root 側で有効化する(box を越境して観測可。
+      # :c_call はオプトイン)。隔離戦略によらず常に root。
       ProtocolTracer.enable(trace_c_call: options.fetch(:trace_c_call, false))
       AdapterRegistry.start_session(id)
-      new(id: id, writer: writer)
+      new(id: id, writer: writer, isolation: isolation)
     end
 
-    def initialize(id:, writer:)
+    def initialize(id:, writer:, isolation:)
       @id = id
       @writer = writer
+      @isolation = isolation
     end
 
     # 観測セッションを終了する。アダプタへ終了を通知し、計装を無効化して、
-    # 購読を解除し、出力先を閉じる。
+    # 購読を解除し、出力先を閉じる。probe の解除は隔離戦略に委ねる。
     def finish
       AdapterRegistry.end_session(@id)
-      AdapterRegistry.uninstall
+      @isolation.uninstall_probe(AdapterRegistry)
       ProtocolTracer.disable
-      Wrapper.unsubscribe(@writer)
+      Collector.unsubscribe(@writer)
       @writer.close
     end
   end

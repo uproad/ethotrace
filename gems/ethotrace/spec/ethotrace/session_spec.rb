@@ -7,6 +7,7 @@ RSpec.describe Ethotrace::Session do
 
   before do
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::AdapterRegistry.reset!
     Ethotrace::Tracker.reset
   end
@@ -14,6 +15,7 @@ RSpec.describe Ethotrace::Session do
   after do
     Ethotrace::Adapters::Stdlib.disable
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
     Ethotrace::AdapterRegistry.reset!
     Ethotrace::Tracker.reset
   end
@@ -31,6 +33,20 @@ RSpec.describe Ethotrace::Session do
       expect(session_record).to include(type: "session", session: "test-session")
       expect(session_record[:adapters]).to eq(["stdlib"])
       expect(session_record[:options]).to include(trace_c_call: false, record_sql_source: true)
+    end
+
+    it "installs and uninstalls the probe through the given isolation strategy" do
+      # 既定以外の戦略を渡すと、probe の設置/解除がその戦略経由で行われる。
+      # 振る舞いは保つため、戦略は実 AdapterRegistry へ委譲しつつ呼び出しを記録する。
+      isolation = Ethotrace::Isolation::Null.new
+      allow(isolation).to receive(:install_probe).and_call_original
+      allow(isolation).to receive(:uninstall_probe).and_call_original
+
+      session = described_class.start(io, id: "iso", isolation: isolation)
+      expect(isolation).to have_received(:install_probe).with(Ethotrace::AdapterRegistry)
+
+      session.finish
+      expect(isolation).to have_received(:uninstall_probe).with(Ethotrace::AdapterRegistry)
     end
 
     it "stops recording into the writer after finish (unsubscribed)" do

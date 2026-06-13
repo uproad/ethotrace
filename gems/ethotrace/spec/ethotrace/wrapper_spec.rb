@@ -2,18 +2,25 @@
 
 RSpec.describe Ethotrace::Wrapper do
   # prepend は取り消せないため、各 example は毎回**新しい無名クラス**を計装する。
-  # レジストリ・購読者・警告フラグは reset! で初期化し、コールスタックも掃除する。
-  before { described_class.reset! }
+  # 計装レジストリ(Wrapper)・購読者(Collector)・警告フラグ(Diagnostics)を
+  # reset! で初期化し、コールスタック(Tracker)も掃除する。
+  before do
+    described_class.reset!
+    Ethotrace::Collector.reset!
+    Ethotrace::Diagnostics.reset!
+  end
 
   after do
     described_class.reset!
+    Ethotrace::Collector.reset!
+    Ethotrace::Diagnostics.reset!
     Ethotrace::Tracker.reset
   end
 
-  # 完了した観測レコードを集める購読者。
+  # 完了した観測レコードを集める購読者(sink は Collector が持つ)。
   let(:observations) { [] }
 
-  before { described_class.subscribe(->(ctx) { observations << ctx.to_observation }) }
+  before { Ethotrace::Collector.subscribe(->(ctx) { observations << ctx.to_observation }) }
 
   def last_observation
     observations.last
@@ -178,13 +185,39 @@ RSpec.describe Ethotrace::Wrapper do
 
   describe "fail-safe (内部エラーをユーザーへ伝播させない)" do
     it "does not let a subscriber error break the user call, and warns once" do
-      described_class.subscribe(->(_ctx) { raise "subscriber boom" })
+      Ethotrace::Collector.subscribe(->(_ctx) { raise "subscriber boom" })
       klass = Class.new { def value = :ok }
       described_class.wrap(klass, :value)
 
       result = nil
       expect { result = klass.new.value }.to output(/internal error suppressed/).to_stderr
       expect(result).to eq(:ok)
+    end
+  end
+
+  # 自己適用の defense-in-depth: 記録の活性パスにある自身のクラスは計装を拒む
+  # (設計資料 §4.8 / §8-13)。名前ベースなので box 内の同名クラスにも効く。
+  describe "self-instrumentation deny-list" do
+    it "refuses to wrap the recording machinery in its own namespace" do
+      expect(described_class.wrap(Ethotrace::Tracker, :begin_call, kind: :singleton)).to be(false)
+      expect(described_class.wrap(Ethotrace::CallContext, :record_return)).to be(false)
+      expect(described_class.instrumented?(Ethotrace::Tracker, :begin_call, kind: :singleton)).to be(false)
+    end
+
+    it "denies by name so a same-named class in another space is also excluded" do
+      # 別空間(box)の同名クラスを模す。後片付けで触れない denied 名を使う。
+      doppelganger = Class.new { def call = nil }
+      stub_const("Ethotrace::ProtocolTracer", doppelganger)
+      expect(described_class.wrap(doppelganger, :call)).to be(false)
+    end
+
+    it "still allows wrapping Ethotrace classes outside the recording path" do
+      # Merge / Session 等の記録パス外は自己適用で観測対象にできる。実 Merge を wrap すると
+      # prepend が残りスイートを汚すため、述語の確認 + throwaway クラスの計装で検証する。
+      expect(described_class.self_denied?(Ethotrace::Merge)).to be(false)
+      sample = Class.new { def run = :ok }
+      stub_const("Ethotrace::SampleTarget", sample)
+      expect(described_class.wrap(sample, :run)).to be(true)
     end
   end
 end

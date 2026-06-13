@@ -14,6 +14,8 @@ RSpec.shared_context "isolated instrumentation" do
   def reset_ethotrace_instrumentation!
     Ethotrace::Adapters::Stdlib.disable
     Ethotrace::Wrapper.reset!
+    Ethotrace::Collector.reset!
+    Ethotrace::Diagnostics.reset!
     Ethotrace::AdapterRegistry.reset!
     Ethotrace::Tracker.reset
   end

@@ -8,8 +8,8 @@ module Ethotrace
   # {wrap} は計装レジストリで二重 wrap を防ぎつつ {Instrumentation} に横取り
   # モジュールの prepend を委ねる。ラッパーは {observe} を介して元メソッドを
   # `super` で呼び、戻り値(Success)とエスケープ例外(Error)を {CallContext}
-  # へ記録する。完了したコンテキストは {subscribe} で登録した購読者(JSONL
-  # ライター等)へ流す。
+  # へ記録する。完了したコンテキストは collector 側の sink({Collector})へ
+  # 引き渡す(probe は配信先を知らない)。
   #
   # 不変条件(CLAUDE.md「実装上の最重要ルール」):
   #
@@ -26,9 +26,27 @@ module Ethotrace
     # 行われるが、念のためスレッド安全にする。
     LOCK = Monitor.new
 
-    @registry = {}     # { [target, name, kind] => true }
-    @subscribers = []  # 完了した CallContext を受け取る callable 群
-    @reported_internal_error = false
+    # 自己適用の defense-in-depth: 記録の活性パスにある自身のクラスは計装対象から
+    # 除外する。これらを wrap すると「計装機構そのものが計装対象になる」自己言及で、
+    # 記録の最中に自身を観測して再帰しうる(設計資料 §4.8 / §8-13)。再入ガードが
+    # 第一の防御、本 deny-list が第二の防御。隔離戦略(BoxIsolation)が本来の解決。
+    #
+    # 名前ベースで判定するため box 内の同名クラス(別実体)にも効き、box 側 probe が
+    # box 自身の記録パスを誤って計装するのも防ぐ。Merge / Session / JSONLWriter 等の
+    # 記録パス外のクラスは対象外なので、自己適用で観測できる。
+    SELF_DENY_LIST = %w[
+      Ethotrace::Tracker
+      Ethotrace::Wrapper
+      Ethotrace::ReentryGuard
+      Ethotrace::Collector
+      Ethotrace::Diagnostics
+      Ethotrace::ArgumentTable
+      Ethotrace::Instrumentation
+      Ethotrace::CallContext
+      Ethotrace::ProtocolTracer
+    ].freeze
+
+    @registry = {} # { [target, name, kind] => true }
 
     class << self
       # 対象メソッドにラッパーを prepend する。
@@ -38,6 +56,8 @@ module Ethotrace
       # @param kind [Symbol] :instance(インスタンスメソッド)/ :singleton(特異メソッド)。
       # @return [Boolean] 新たに計装したら true、既に計装済みなら false。
       def wrap(klass, name, kind: :instance) # rubocop:disable Naming/PredicateMethod
+        return false if self_denied?(klass)
+
         name = name.to_sym
         key = [Instrumentation.prepend_target(klass, kind), name, kind]
 
@@ -50,39 +70,26 @@ module Ethotrace
         true
       end
 
+      # 対象が自己適用 deny-list({SELF_DENY_LIST})に該当するか(記録の活性パスは
+      # 計装しない)。名前を持たない無名クラスは対象外として通す。
+      def self_denied?(klass)
+        name = klass.name
+        return false unless name
+
+        SELF_DENY_LIST.any? { |denied| name == denied || name.start_with?("#{denied}::") }
+      end
+
       # 対象メソッドが計装済みか。
       def instrumented?(klass, name, kind: :instance)
         key = [Instrumentation.prepend_target(klass, kind), name.to_sym, kind]
         LOCK.synchronize { @registry.key?(key) }
       end
 
-      # 完了した観測(CallContext)の購読者を登録する。
-      # JSONL ライター(feature/jsonl-writer)が利用する producer→consumer の継ぎ目。
-      def subscribe(callable)
-        LOCK.synchronize { @subscribers << callable }
-        callable
-      end
-
-      # 購読者を解除する(セッション終了時など)。
-      def unsubscribe(callable)
-        LOCK.synchronize { @subscribers.delete(callable) }
-        callable
-      end
-
-      # 現在の購読者一覧(コピー)。
-      def subscribers
-        LOCK.synchronize { @subscribers.dup }
-      end
-
-      # 計装レジストリと購読者を初期化する(主にテスト用)。
+      # 計装レジストリを初期化する(主にテスト用)。
       # 既に prepend 済みのモジュールは外せないが、レジストリを空にすることで
-      # 再 wrap を許可し、購読者を切り離す。
+      # 再 wrap を許可する。観測シンク(購読者)の初期化は {Collector.reset!} が担う。
       def reset!
-        LOCK.synchronize do
-          @registry.clear
-          @subscribers.clear
-          @reported_internal_error = false
-        end
+        LOCK.synchronize { @registry.clear }
       end
 
       # ラッパー本体。`super` を内側で呼ぶブロックを受け取り、三チャネル観測の
@@ -120,39 +127,22 @@ module Ethotrace
         bookkeep { conclude(context) }
       end
 
-      # 呼び出し終了: スタックから降ろし、完了した観測を購読者へ流す。
+      # 呼び出し終了: スタックから降ろし、完了した観測を collector の sink へ引き渡す。
       def conclude(context)
         Tracker.end_call(context)
-        publish(context)
+        Collector.publish(context)
       end
 
       # 記録処理(トレーサ内部作業)を再入ガード下で実行する。
       # 再入時は nil を返してブロックを実行しない。内部エラーはユーザーへ
-      # 伝播させず、観測のみ無効化して一度だけ警告する。
+      # 伝播させず、観測のみ無効化して一度だけ警告する({Diagnostics})。
       def bookkeep
         ReentryGuard.guard do
           yield
         rescue StandardError => e
-          report_internal_error(e)
+          Diagnostics.report_internal_error(e)
           nil
         end
-      end
-
-      # 完了した CallContext を全購読者へ通知する。購読者の例外は他へ伝播させない。
-      def publish(context)
-        @subscribers.each do |callable|
-          callable.call(context)
-        rescue StandardError => e
-          report_internal_error(e)
-        end
-      end
-
-      def report_internal_error(error)
-        return if @reported_internal_error
-
-        @reported_internal_error = true
-        warn "[ethotrace] internal error suppressed; observation disabled for this call: " \
-             "#{error.class}: #{error.message}"
       end
     end
   end

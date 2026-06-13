@@ -123,17 +123,21 @@ RSpec.describe Ethotrace::JSONLWriter do
     end
   end
 
-  describe "as a Wrapper subscriber (end-to-end)" do
-    before { Ethotrace::Wrapper.reset! }
+  describe "as a Collector subscriber (end-to-end)" do
+    before do
+      Ethotrace::Wrapper.reset!
+      Ethotrace::Collector.reset!
+    end
 
     after do
       Ethotrace::Wrapper.reset!
+      Ethotrace::Collector.reset!
       Ethotrace::Tracker.reset
     end
 
     it "records observations for instrumented calls" do
       writer = build_writer
-      Ethotrace::Wrapper.subscribe(writer)
+      Ethotrace::Collector.subscribe(writer)
 
       klass = Class.new { def double(num) = num * 2 }
       Ethotrace::Wrapper.wrap(klass, :double)
