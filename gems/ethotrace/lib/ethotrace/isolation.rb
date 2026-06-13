@@ -53,3 +53,5 @@ end
 
 # box 内グルー({Isolation::BoxBridge})。Box が無くても無害にロードできる純粋な glue。
 require_relative "isolation/box_bridge"
+# Ruby::Box による実体分離戦略({Isolation::Box})。{Strategy} 定義後にロードする(継承のため)。
+require_relative "isolation/box"
