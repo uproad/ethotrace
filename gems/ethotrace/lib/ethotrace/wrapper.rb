@@ -26,6 +26,26 @@ module Ethotrace
     # 行われるが、念のためスレッド安全にする。
     LOCK = Monitor.new
 
+    # 自己適用の defense-in-depth: 記録の活性パスにある自身のクラスは計装対象から
+    # 除外する。これらを wrap すると「計装機構そのものが計装対象になる」自己言及で、
+    # 記録の最中に自身を観測して再帰しうる(設計資料 §4.8 / §8-13)。再入ガードが
+    # 第一の防御、本 deny-list が第二の防御。隔離戦略(BoxIsolation)が本来の解決。
+    #
+    # 名前ベースで判定するため box 内の同名クラス(別実体)にも効き、box 側 probe が
+    # box 自身の記録パスを誤って計装するのも防ぐ。Merge / Session / JSONLWriter 等の
+    # 記録パス外のクラスは対象外なので、自己適用で観測できる。
+    SELF_DENY_LIST = %w[
+      Ethotrace::Tracker
+      Ethotrace::Wrapper
+      Ethotrace::ReentryGuard
+      Ethotrace::Collector
+      Ethotrace::Diagnostics
+      Ethotrace::ArgumentTable
+      Ethotrace::Instrumentation
+      Ethotrace::CallContext
+      Ethotrace::ProtocolTracer
+    ].freeze
+
     @registry = {} # { [target, name, kind] => true }
 
     class << self
@@ -36,6 +56,8 @@ module Ethotrace
       # @param kind [Symbol] :instance(インスタンスメソッド)/ :singleton(特異メソッド)。
       # @return [Boolean] 新たに計装したら true、既に計装済みなら false。
       def wrap(klass, name, kind: :instance) # rubocop:disable Naming/PredicateMethod
+        return false if self_denied?(klass)
+
         name = name.to_sym
         key = [Instrumentation.prepend_target(klass, kind), name, kind]
 
@@ -46,6 +68,15 @@ module Ethotrace
           @registry[key] = true
         end
         true
+      end
+
+      # 対象が自己適用 deny-list({SELF_DENY_LIST})に該当するか(記録の活性パスは
+      # 計装しない)。名前を持たない無名クラスは対象外として通す。
+      def self_denied?(klass)
+        name = klass.name
+        return false unless name
+
+        SELF_DENY_LIST.any? { |denied| name == denied || name.start_with?("#{denied}::") }
       end
 
       # 対象メソッドが計装済みか。
