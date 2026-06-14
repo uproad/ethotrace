@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
-# マージ済みの自己観測 JSONL を、Git に追跡させて公開できる成果物へ正規化する。
+# マージ済みの自己観測 JSONL を、Git に追跡させて公開できる成果物へ仕上げる。
 #
 #   bundle exec ruby script/dogfood/normalize.rb [STORE]
 #
-# 生の観測ストアには環境依存・非決定的な要素が混じるため、そのままコミットすると
-# 機微情報の漏洩(絶対パス)と無意味な差分(PID 由来の session_id・レコード順)を招く。
-# 本スクリプトは次を施して同じファイルへ書き戻す:
+# **観測対象プロジェクト配下のパス(`site.path` や base 配下の io パス)は core が
+# 観測時点で相対化済み**(`Ethotrace::PathNormalizer`)。本スクリプトが扱うのは
+# core が相対化できない残り、すなわち **base の外を指す絶対パス**(io エフェクトが
+# 触れた third-party gem のリソースや tmp ファイル等)と、観測のたびに変わる
+# 非決定要素だけ。次を施して同じファイルへ書き戻す:
 #
-#   - 全レコードの絶対パスを可搬な形へ畳む。リポジトリ内はルート相対(`gems/...`)、
-#     gem インストール先は gem 相対(`gem:json-schema-6.2.0/...`)、それ以外のホーム
-#     配下は `~/...` にして `/home/<user>/...` を漏らさない(site.path・io.read の
-#     detail.path 等、ネストした値も再帰的に処理する)。
+#   - base 外の絶対パスを可搬な形へ畳む。gem インストール先は gem 相対
+#     (`gem:json-schema-6.2.0/...`)、tmp 配下は `tmp:...`、その他のホーム配下は
+#     `~/...` にして `/home/<user>/...` を漏らさない(detail.path 等、ネストした値も
+#     再帰的に処理する)。
 #   - レコードを owner / name / kind で決定的にソートし、再観測時の差分を安定させる。
 #   - sessions 配列をソートする(観測 gem 単位の決定的 session_id が前提。observe.rb 参照)。
 #
@@ -21,7 +23,6 @@ require "json"
 require "tmpdir"
 
 STORE = ARGV.fetch(0, ENV.fetch("ETHOTRACE_SELF_STORE", "docs/self-observation.jsonl"))
-ROOT = File.expand_path(ENV.fetch("ETHOTRACE_ROOT", Dir.pwd))
 HOME = File.expand_path(Dir.home)
 TMP = File.expand_path(Dir.tmpdir)
 
@@ -32,12 +33,12 @@ def collapse_tmp(expanded)
   "tmp:#{tail || File.basename(expanded)}"
 end
 
-# 絶対パスらしい文字列だけを可搬な表現へ畳む。非パス文字列は素通り。
+# base の外を指す絶対パスだけを可搬な表現へ畳む。相対パス(core が正規化済み)や
+# 非パス文字列は素通り。
 def portable(str)
   return str unless str.start_with?("/")
 
   expanded = File.expand_path(str)
-  return expanded.delete_prefix("#{ROOT}/") if expanded.start_with?("#{ROOT}/")
   return "gem:#{expanded.split("/gems/").last}" if expanded.include?("/gems/")
   return collapse_tmp(expanded) if expanded.start_with?("#{TMP}/")
   return "~/#{expanded.delete_prefix("#{HOME}/")}" if expanded.start_with?("#{HOME}/")
@@ -68,4 +69,4 @@ File.open(STORE, "w") do |io|
   records.each { |rec| io.puts(JSON.generate(rec)) }
 end
 
-puts "normalized #{STORE} (#{records.size} records; paths relativized to #{ROOT})"
+puts "normalized #{STORE} (#{records.size} records; base-external paths collapsed)"

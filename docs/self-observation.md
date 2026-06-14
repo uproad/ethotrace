@@ -68,9 +68,12 @@ bundle exec ruby script/dogfood/report.rb
 ```
 
 > 生 JSONL(`tmp/dogfood/`)は再生成可能なためコミットしない(`.gitignore` 済み)。
-> **正規化済みストア `docs/self-observation.jsonl` は観測成果物としてコミットする**
-> (絶対パスを相対化し、session_id とレコード順を決定化済み)。本マークダウンと
-> 生成スクリプトも同様にコミットする。
+> **正規化済みストア `docs/self-observation.jsonl` は観測成果物としてコミットする。**
+> プロジェクト配下のパス(`site.path` 等)は core が観測時点で相対化済み
+> (`Ethotrace::PathNormalizer`)。normalize ステップは core が相対化できない
+> base 外のパス(io が触れた gem リソース・tmp ファイル)の畳み込みと、
+> session_id・レコード順の決定化のみを担う。本マークダウンと生成スクリプトも
+> 同様にコミットする。
 
 ## gem 別の観測契約
 
