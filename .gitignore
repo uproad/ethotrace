@@ -11,6 +11,9 @@ gems/*/Gemfile.lock
 # Ethotrace の観測生ログ出力先・マージ済みストア(再生成可能なため追跡しない)
 /tmp/ethotrace/
 /ethotrace/
+# dogfooding の生ログ(各 gem の root から実行した場合の出力先)。
+# 成果物 gems/*/docs/self-observation.* は追跡する。
+gems/*/tmp/
 /coverage/
 /InstalledFiles
 /pkg/
