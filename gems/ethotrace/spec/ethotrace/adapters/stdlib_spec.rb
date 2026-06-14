@@ -90,6 +90,16 @@ RSpec.describe Ethotrace::Adapters::Stdlib do
       expect(read_reqs.first).to include(kind: "io.read", write: false, detail: { path: path, mode: "r" })
     end
 
+    it "relativizes an io path under the base directory" do
+      original = Ethotrace.base_dir
+      Ethotrace.base_dir = @dir
+      path = File.join(@dir, "data.txt")
+      reqs = requirements_during { File.write(path, "hello") }
+      expect(reqs.first[:detail][:path]).to eq("data.txt")
+    ensure
+      Ethotrace.base_dir = original
+    end
+
     it "classifies File.open by mode" do
       path = File.join(@dir, "data.txt")
       # File.open(write) フックを試すのが目的。Style/FileWrite はこの構文の

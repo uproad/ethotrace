@@ -123,7 +123,10 @@ RSpec.describe Ethotrace::Wrapper do
       described_class.wrap(klass, :total)
       klass.new.total
       expect(last_observation[:method]).to include(name: "total", kind: "instance")
-      expect(last_observation[:site][:path]).to end_with("wrapper_spec.rb")
+      site_path = last_observation[:site][:path]
+      expect(site_path).to end_with("wrapper_spec.rb")
+      # source_location は絶対パスだが、観測時に基準ディレクトリ相対へ正規化される。
+      expect(site_path).not_to start_with("/")
       expect(last_observation[:site][:line]).to be_a(Integer)
     end
 

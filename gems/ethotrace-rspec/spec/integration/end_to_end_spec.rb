@@ -56,8 +56,11 @@ RSpec.describe "ethotrace-rspec to merge CLI end-to-end" do
 
     expect(merged.size).to eq(1)
     record = merged.first
-    # site は絶対パス(source_location)のため、決定的なゴールデン比較から外す。
-    expect(record.delete(:site)).to include(:path, :line)
+    # site は基準ディレクトリ相対へ正規化される(絶対パスを漏らさない)。line は
+    # 定義位置に依存して動くため、ここでは path が相対であることのみ確認し eq からは外す。
+    site = record.delete(:site)
+    expect(site).to include(:path, :line)
+    expect(site[:path]).not_to start_with("/")
 
     expect(record).to eq(
       schema_version: 1,

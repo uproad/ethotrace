@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "ethotrace/version"
+require_relative "ethotrace/path_normalizer"
 require_relative "ethotrace/reentry_guard"
 require_relative "ethotrace/diagnostics"
 require_relative "ethotrace/call_context"
@@ -33,4 +34,16 @@ module Ethotrace
   # Ethotrace 自身に起因するエラーの基底クラス。
   # 観測対象から伝播する例外(Error チャネル)とは区別する。
   class Error < StandardError; end
+
+  class << self
+    # 観測パス(`site` / io エフェクト)を相対化する基準ディレクトリ。観測対象
+    # プロジェクトのルートを指す。既定はプロセスの作業ディレクトリで、通常は
+    # テストをそのルートから実行するため上書き不要。特殊な配置では明示設定する。
+    # 詳細は {PathNormalizer}。
+    attr_writer :base_dir
+
+    def base_dir
+      @base_dir ||= Dir.pwd
+    end
+  end
 end
