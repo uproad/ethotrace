@@ -1,0 +1,3 @@
+# 共通設定はモノレポルートの .rubocop.yml に集約する。
+# gem 単体で `cd gems/ethotrace-mcp && bundle exec rubocop` する場合もこれで解決される。
+inherit_from: ../../.rubocop.yml

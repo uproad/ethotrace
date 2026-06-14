@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# Specify your gem's dependencies in ethotrace-mcp.gemspec
+gemspec
+
+# 単体開発(cd gems/ethotrace-mcp)では未公開の core をモノレポ内パスで解決する。
+gem "ethotrace", path: "../ethotrace"
+
+gem "irb"
+gem "rake", "~> 13.0"
+
+gem "rspec", "~> 3.0"
+
+gem "rubocop", "~> 1.21"

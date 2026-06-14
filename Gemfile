@@ -6,6 +6,7 @@ source "https://rubygems.org"
 # アダプタ gem(ethotrace-rspec 等)を追加したら gemspec 行をここに足す。
 gemspec path: "gems/ethotrace", name: "ethotrace"
 gemspec path: "gems/ethotrace-rspec", name: "ethotrace-rspec"
+gemspec path: "gems/ethotrace-mcp", name: "ethotrace-mcp"
 
 group :development, :test do
   gem "benchmark-ips", require: false
