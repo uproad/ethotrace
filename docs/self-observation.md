@@ -8,6 +8,10 @@ Ethotrace を **Ethotrace 自身のテストスイートに適用** して得た
 > 反映され、未実行パスの規約は含まれない。これは欠陥ではなく仕様(`CLAUDE.md` /
 > 設計資料 §「観測結果の重要な仕様」)。本レポートは手動生成の成果物で、
 > `script/dogfood/report.rb` で再生成できる。
+>
+> このマークダウンは要約であり、**機械可読な観測データ本体は同梱の
+> [`self-observation.jsonl`](./self-observation.jsonl)**(schema v1 の
+> method_observation レコード列)。MCP の `ethotrace-mcp` でそのまま読み込める。
 
 ## 観測環境
 
@@ -43,24 +47,30 @@ Ethotrace を **Ethotrace 自身のテストスイートに適用** して得た
 ### 再現手順
 
 ```bash
-# 1. 各 gem の安全な spec を観測下で実行(gem ごとに別ファイルへ出力)
+# 1. 各 gem の安全な spec を観測下で実行(gem ごとに決定的な session で別ファイルへ)
 rm -rf tmp/dogfood && mkdir -p tmp/dogfood
-bundle exec rspec -r ./script/dogfood/observe.rb -I gems/ethotrace/spec \
+ETHOTRACE_DOGFOOD_SESSION=core bundle exec rspec -r ./script/dogfood/observe.rb \
+  -I gems/ethotrace/spec \
   gems/ethotrace/spec/ethotrace/merge_spec.rb gems/ethotrace/spec/ethotrace/cli
-bundle exec rspec -r ./script/dogfood/observe.rb -I gems/ethotrace-mcp/spec \
+ETHOTRACE_DOGFOOD_SESSION=mcp bundle exec rspec -r ./script/dogfood/observe.rb \
+  -I gems/ethotrace-mcp/spec \
   gems/ethotrace-mcp/spec/ethotrace/mcp_spec.rb gems/ethotrace-mcp/spec/ethotrace/mcp
-bundle exec rspec -r ./script/dogfood/observe.rb -I gems/ethotrace-rspec/spec \
+ETHOTRACE_DOGFOOD_SESSION=rspec bundle exec rspec -r ./script/dogfood/observe.rb \
+  -I gems/ethotrace-rspec/spec \
   gems/ethotrace-rspec/spec/ethotrace/rspec/configuration_spec.rb
 
-# 2. マージして 1 つのストアへ
-bundle exec ethotrace merge tmp/dogfood/*.jsonl -o ethotrace/self-observation.jsonl
+# 2. マージして公開ストアへ、環境依存・非決定要素を正規化
+bundle exec ethotrace merge tmp/dogfood/*.jsonl -o docs/self-observation.jsonl
+bundle exec ruby script/dogfood/normalize.rb docs/self-observation.jsonl
 
 # 3. 本ドキュメントを再生成
 bundle exec ruby script/dogfood/report.rb
 ```
 
-> 生 JSONL(`tmp/dogfood/`)とマージ済みストア(`ethotrace/`)は再生成可能なため
-> コミットしない(`.gitignore` 済み)。コミットするのは本マークダウンと生成スクリプトのみ。
+> 生 JSONL(`tmp/dogfood/`)は再生成可能なためコミットしない(`.gitignore` 済み)。
+> **正規化済みストア `docs/self-observation.jsonl` は観測成果物としてコミットする**
+> (絶対パスを相対化し、session_id とレコード順を決定化済み)。本マークダウンと
+> 生成スクリプトも同様にコミットする。
 
 ## gem 別の観測契約
 
@@ -162,5 +172,5 @@ bundle exec ruby script/dogfood/report.rb
 
 ---
 
-*このファイルは `script/dogfood/report.rb` が `ethotrace/self-observation.jsonl` から生成した。観測の取り方は
+*このファイルは `script/dogfood/report.rb` が `docs/self-observation.jsonl` から生成した。観測の取り方は
 上記「再現手順」を参照。*
