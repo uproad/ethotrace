@@ -21,7 +21,7 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](docs/sc
 | `gems/ethotrace-rspec` | RSpec ライフサイクル接続 |
 | `gems/ethotrace-minitest` | Minitest 版(予定) |
 | `gems/ethotrace-rails` | Railtie / ActiveSupport::Notifications / Zeitwerk 連携(予定) |
-| `gems/ethotrace-mcp` | MCP サーバ(予定) |
+| `gems/ethotrace-mcp` | 観測結果を提供する MCP サーバ(観測プロセスと完全分離) |
 | `gems/ethotrace-rbs` | RBS interface への投影(予定) |
 
 ## 実装状況
@@ -34,7 +34,7 @@ gem 間の安定契約である JSONL スキーマは [`docs/schema.md`](docs/sc
 | M3 | TracePoint エンジン + 引数プロトコル観測 | ✅ |
 | M4 | `ethotrace-rspec`(スイートライフサイクル接続)+ マージ CLI(`ethotrace merge`) | ✅ |
 | M5 | 自己適用(self-hosting)+ 隔離戦略(`NullIsolation` / `BoxIsolation`)+ collector/probe 分離 | ✅ |
-| M6 | `ethotrace-mcp`(自己観測データを参照する MCP サーバ) | 予定 |
+| M6 | `ethotrace-mcp`(自己観測データを参照する MCP サーバ) | ✅ |
 | M7 | `ethotrace-rails`(Railtie / Notifications / Zeitwerk) | 予定 |
 | M8 | `ethotrace-rbs`(protocol → RBS `interface` 投影) | 予定 |
 
@@ -73,6 +73,35 @@ bundle exec ethotrace merge tmp/ethotrace/*.jsonl -o ethotrace/observations.json
 出力は `method_observation` 形を 1 行 1 レコードで保つため**再マージ可能**。
 `-o` を省略すると標準出力へ純粋な JSONL を流す(進捗・サマリは標準エラーへ)。
 マージ結果は `ethotrace view` でそのまま閲覧できる。
+
+## MCP サーバ(`ethotrace-mcp`)
+
+マージ済みの観測結果を **MCP サーバ(stdio / JSON-RPC)** として公開し、AI エージェント
+(第一のユーザーは Ethotrace を開発する Claude Code 自身)が各メソッドの規約を参照しながら
+開発を進められるようにする。観測プロセスとは**完全分離**したデータ消費者で、計装は一切起動
+しない(設計資料 §9 / M6)。
+
+```bash
+# 既定で ethotrace/observations.jsonl を読み、stdio で待ち受ける
+bundle exec ethotrace-mcp
+bundle exec ethotrace-mcp path/to/observations.jsonl   # 読むストアを明示
+```
+
+Claude Code へは `.mcp.json.example` を `.mcp.json` にコピーするとプロジェクトスコープの
+MCP サーバとして登録される。公開ツール:
+
+| ツール | 返すもの |
+|---|---|
+| `lookup_method` | 1 メソッドの全規約(プロトコル・戻り値・例外・Requirements) |
+| `list_methods` | 観測された全メソッド |
+| `pure_methods` | Requirements が空(R=∅ = 純粋の容疑) |
+| `flaky_suspects` | 非決定性 Requirements(`time.read` / `random.read` 等)に接触 |
+| `requiring` | 特定エフェクト語彙(`db.query` / `env.read` 等)に接触 |
+| `methods_raising` / `exceptions_of` | 例外をエスケープさせうるメソッド / その例外クラス |
+| `param_protocol` | 指定引数に観測されたプロトコル |
+
+返る規約は **observed contract(テストで実行されたパスの下限)**。詳しい自己観測ループの手順は
+`CLAUDE.md` を参照。
 
 ## 自己適用(self-hosting)と隔離戦略
 

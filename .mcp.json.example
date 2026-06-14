@@ -1,0 +1,9 @@
+{
+  "$comment": "ethotrace-mcp をプロジェクトスコープの MCP サーバとして Claude Code に登録するサンプル。このファイルを .mcp.json にコピーすると自己観測ループが有効になる(設計資料 §9 / M6)。サーバはリポジトリルートで起動し、既定で ethotrace/observations.jsonl を読む。観測データの生成手順は CLAUDE.md の『自己観測ループ』を参照。",
+  "mcpServers": {
+    "ethotrace": {
+      "command": "bundle",
+      "args": ["exec", "ethotrace-mcp"]
+    }
+  }
+}
