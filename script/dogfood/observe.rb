@@ -48,6 +48,10 @@ end
 
 Ethotrace::RSpec.setup do |config|
   config.output_dir = "tmp/dogfood"
+  # 公開する成果物の差分を安定させるため、PID 由来の既定 session_id を
+  # gem 単位の決定的な名前で上書きする(再現手順で gem ごとに渡す)。
+  session = ENV.fetch("ETHOTRACE_DOGFOOD_SESSION", nil)
+  config.session_id = session if session && !session.empty?
   # インスタンスメソッドとクラス/モジュール関数の双方を観測する。対象クラスが
   # 当該 kind のメソッドを持たなければ TargetAdapter が素通りするだけ。
   Ethotrace::Dogfood::SAFE_TARGETS.each do |klass|
