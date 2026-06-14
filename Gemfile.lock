@@ -3,6 +3,7 @@ PATH
   specs:
     ethotrace-mcp (0.1.0)
       ethotrace (= 0.1.0)
+      mcp (~> 0.1)
 
 PATH
   remote: gems/ethotrace-rspec
@@ -18,8 +19,11 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
+    addressable (2.9.0)
+      public_suffix (>= 2.0.2, < 8.0)
     ast (2.4.3)
     benchmark-ips (2.15.1)
+    bigdecimal (4.1.2)
     date (3.5.1)
     diff-lcs (1.6.2)
     erb (6.0.4)
@@ -30,8 +34,13 @@ GEM
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     json (2.19.8)
+    json-schema (6.2.0)
+      addressable (~> 2.8)
+      bigdecimal (>= 3.1, < 5)
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
+    mcp (0.19.0)
+      json-schema (>= 4.1)
     parallel (2.1.0)
     parser (3.3.11.1)
       ast (~> 2.4.1)
@@ -43,6 +52,7 @@ GEM
     psych (5.4.0)
       date
       stringio
+    public_suffix (7.0.5)
     racc (1.8.1)
     rainbow (3.1.1)
     rake (13.4.2)
@@ -102,8 +112,10 @@ DEPENDENCIES
   rubocop (~> 1.21)
 
 CHECKSUMS
+  addressable (2.9.0) sha256=7fdf6ac3660f7f4e867a0838be3f6cf722ace541dd97767fa42bc6cfa980c7af
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   benchmark-ips (2.15.1) sha256=07a1a9f3c6105ecaf68c174fc3fbcddd71a0e9ada6236ae03093a0dcfd812d59
+  bigdecimal (4.1.2) sha256=53d217666027eab4280346fba98e7d5b66baaae1b9c3c1c0ffe89d48188a3fbd
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
   erb (6.0.4) sha256=38e3803694be357fe2bfe312487c74beaf9fb4e5beb3e22498952fe1645b95d9
@@ -113,14 +125,17 @@ CHECKSUMS
   io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
   irb (1.18.0) sha256=de9454a0703a54704b9811a5ef31a60c86949fbf4013fcf244fabc7c775248e3
   json (2.19.8) sha256=6354310fd76ef69b87d5bd1f38b40d730613baf90b6803d2d0a48f618d32dfaa
+  json-schema (6.2.0) sha256=e8bff46ed845a22c1ab2bd0d7eccf831c01fe23bb3920caa4c74db4306813666
   language_server-protocol (3.17.0.5) sha256=fd1e39a51a28bf3eec959379985a72e296e9f9acfce46f6a79d31ca8760803cc
   lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
+  mcp (0.19.0) sha256=4e453492ee1b1e7d56cac92017de8c087fed0ea07a8871c73cc7561523d2edd6
   parallel (2.1.0) sha256=b35258865c2e31134c5ecb708beaaf6772adf9d5efae28e93e99260877b09356
   parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54
   pp (0.6.3) sha256=2951d514450b93ccfeb1df7d021cae0da16e0a7f95ee1e2273719669d0ab9df6
   prettyprint (0.2.0) sha256=2bc9e15581a94742064a3cc8b0fb9d45aae3d03a1baa6ef80922627a0766f193
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
   psych (5.4.0) sha256=14f72d69a611af663d7d70e4a7b67d9eb1f3ae9f8d916b478961d5a0075ba5b7
+  public_suffix (7.0.5) sha256=1a8bb08f1bbea19228d3bed6e5ed908d1cb4f7c2726d18bd9cadf60bc676f623
   racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
   rainbow (3.1.1) sha256=039491aa3a89f42efa1d6dec2fc4e62ede96eb6acd95e52f1ad581182b79bc6a
   rake (13.4.2) sha256=cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa89283701

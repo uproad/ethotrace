@@ -27,7 +27,8 @@ module Ethotrace
       # @param warn_io [IO] 壊れた行・schema_version 不整合の警告先。
       # @return [Catalog]
       def self.load(*paths, warn_io: $stderr)
-        result = CLI::Reader.new(warn_io: warn_io).read(paths.flatten)
+        # core 側 Reader を完全修飾で参照する(Ethotrace::MCP::CLI と衝突しないように)。
+        result = Ethotrace::CLI::Reader.new(warn_io: warn_io).read(paths.flatten)
         new(Merge.call(result.observations))
       end
 

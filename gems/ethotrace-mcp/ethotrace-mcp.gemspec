@@ -36,4 +36,7 @@ Gem::Specification.new do |spec|
   # core への依存(観測の物理学)。MCP は core の消費側コード(Reader / Merge /
   # schema 定数)経由で観測データを読むだけで、計装は一切起動しない。
   spec.add_dependency "ethotrace", Ethotrace::MCP::VERSION
+
+  # MCP プロトコル(JSON-RPC over stdio)の公式 Ruby SDK。
+  spec.add_dependency "mcp", "~> 0.1"
 end

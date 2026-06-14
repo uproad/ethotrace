@@ -11,15 +11,22 @@ AllCops:
     # デモの明快さを優先して意図的に Lint と異なる形を取る。
     - "examples/**/*"
 
-# spec はブロックが構造上長くなるため BlockLength の対象外にする。
+# spec と gemspec はブロックが構造上長くなるため BlockLength の対象外にする。
 Metrics/BlockLength:
   Exclude:
     - "gems/*/spec/**/*"
+    - "gems/*/*.gemspec"
 
 # 複数行にまたがる Hash / 配列 / heredoc リテラルは 1 行扱いで数える。
-# レコード構築は 1 行 1 キーで書く方が読みやすく、行数の水増しで
-# メソッドを不自然に分割させない(キーの羅列は分岐の複雑さではない)。
+# レコード構築・スキーマ宣言は 1 行 1 キーで書く方が読みやすく、行数の水増しで
+# メソッド/モジュールを不自然に分割させない(キーの羅列は分岐の複雑さではない)。
 Metrics/MethodLength:
+  CountAsOne:
+    - array
+    - hash
+    - heredoc
+
+Metrics/ModuleLength:
   CountAsOne:
     - array
     - hash
