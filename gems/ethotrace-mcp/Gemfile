@@ -13,4 +13,8 @@ gem "rake", "~> 13.0"
 
 gem "rspec", "~> 3.0"
 
+# 自己観測(dogfooding)を mcp 単独の root から回すための RSpec ライフサイクル
+# アダプタ。開発時のみ(script/dogfood)。
+gem "ethotrace-rspec", path: "../ethotrace-rspec"
+
 gem "rubocop", "~> 1.21"
