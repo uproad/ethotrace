@@ -114,7 +114,7 @@ module Ethotrace
           mod = Module.new
           FILE_IO_METHODS.each do |meth, (kind, mode, write)|
             mod.define_method(meth) do |*args, **kwargs, &block|
-              Stdlib.record(kind, write: write, path: args.first.to_s, mode: mode)
+              Stdlib.record(kind, write: write, path: PathNormalizer.relativize(args.first.to_s), mode: mode)
               super(*args, **kwargs, &block)
             end
           end
@@ -126,7 +126,7 @@ module Ethotrace
         def define_io_open(mod)
           mod.define_method(:open) do |*args, **kwargs, &block|
             kind, mode, write = Stdlib.classify_open(args[1])
-            Stdlib.record(kind, write: write, path: args.first.to_s, mode: mode)
+            Stdlib.record(kind, write: write, path: PathNormalizer.relativize(args.first.to_s), mode: mode)
             super(*args, **kwargs, &block)
           end
         end

@@ -68,11 +68,13 @@ module Ethotrace
     end
 
     # 定義位置を { path:, line: } へ整形する。C 実装など取得不能なら nil。
+    # source_location は絶対パスを返すため、基準ディレクトリ相対へ正規化する
+    # (機微情報の漏洩防止・観測環境間の差分安定。{PathNormalizer})。
     def site_of(unbound)
       path, line = unbound.source_location
       return nil if path.nil?
 
-      { path: path, line: line }
+      { path: PathNormalizer.relativize(path), line: line }
     end
   end
 end
