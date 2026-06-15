@@ -31,10 +31,12 @@ Ethotrace を **この gem 自身のテストスイートに適用** して得�
 自己観測には固有の制約があり、観測対象は **「観測に関与しないオフラインのデータ処理層・
 純クエリ層」に限定** している。
 
-- **観測エンジン本体(`Wrapper` / `Tracker` / `Session` / `TracePoint` 等)は対象外。**
-  計装機構そのものを計装すると、ラップ呼び出しが共有スタックや購読者をテスト中に変化させて
-  エンジン自身の単体テストを壊し、自己言及で `SystemStackError` に至る。エンジン本体の
-  自己観測は box 隔離(M5)を前提とする別タスク(設計資料 §4.8 / `CLAUDE.md` ルール7)。
+- **観測エンジン本体(`Wrapper` / `Tracker` / `Session` / `TracePoint` 等)はこの
+  NullIsolation の dogfood では対象外。** 計装機構そのものを計装すると、ラップ呼び出しが
+  共有スタックや購読者をテスト中に変化させてエンジン自身の単体テストを壊し、自己言及で
+  `SystemStackError` に至る。エンジン内部は **BoxIsolation で別実体に隔離して観測**する
+  (設計資料 §4.8 / `CLAUDE.md` ルール7、`gems/ethotrace/script/self_observe_engine.rb`)。結果は [self-observation-engine.md](./self-observation-engine.md) を参照。
+  なお記録の活性パス(`Wrapper::SELF_DENY_LIST`)は Box でも観測対象から恒久除外される。
 - **`Wrapper.reset!` を呼ぶ spec は除外。** reset! は観測 writer(購読者)を外すため、
   途中から記録が止まる。`ethotrace-mcp` の E2E spec などはこの理由で対象から外している。
 - **C で実装されたメソッドは引数プロトコルに現れない。** 既定の `TracePoint` は
