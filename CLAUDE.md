@@ -8,13 +8,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Gem 構成（モノレポ）
 
+実在する gem（`gems/` 配下）:
+
 ```
 gems/ethotrace          # core: 観測エンジン + stdlib アダプタ + JSONL ライター + マージ CLI
 gems/ethotrace-rspec    # RSpec ライフサイクル接続
-gems/ethotrace-minitest # Minitest 版
-gems/ethotrace-rails    # Railtie / ActiveSupport::Notifications / Zeitwerk 連携
 gems/ethotrace-mcp      # MCP サーバ（観測プロセスと完全分離）
-gems/ethotrace-rbs      # RBS interface への投影
+```
+
+計画中（未作成。ロードマップ上の将来マイルストーン — `.claude/docs/roadmap.md` 参照）:
+
+```
+ethotrace-minitest      # Minitest 版
+ethotrace-rails         # Railtie / ActiveSupport::Notifications / Zeitwerk 連携（M7）
+ethotrace-rbs           # RBS interface への投影（M8）
 ```
 
 ## 活動別ナレッジ（必要時に Read すること）
