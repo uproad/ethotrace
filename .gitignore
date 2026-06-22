@@ -2,6 +2,9 @@
 *.rbc
 /.config
 
+# Claude Code の個人用ローカル設定(権限許可など環境固有値が入りうるため追跡しない)
+.claude/settings.local.json
+
 # RSpec の example status 永続化ファイル
 .rspec_status
 
