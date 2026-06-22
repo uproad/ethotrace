@@ -54,8 +54,8 @@ rules live in [`docs/commit-guidelines.md`](docs/commit-guidelines.md) (written 
 
 ## Coding conventions
 
-- Comments are written in Japanese; code itself (identifiers, `it` descriptions, etc.) is in
-  English.
+- Comments may be written in any language; code itself (identifiers, `it` descriptions, etc.)
+  is in English.
 - Style is enforced by RuboCop (`bundle exec rake rubocop`).
 
 ## License
