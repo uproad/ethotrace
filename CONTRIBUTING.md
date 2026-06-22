@@ -1,62 +1,64 @@
-# コントリビューションガイド
+# Contributing
 
-Ethotrace への貢献に興味を持っていただきありがとうございます。このドキュメントは、
-Issue・Pull Request を出す際の手順と規約をまとめたものです。
+*日本語版は [CONTRIBUTING_JP.md](CONTRIBUTING_JP.md) を参照してください。*
 
-## はじめに
+Thank you for your interest in contributing to Ethotrace. This document describes how to
+open issues and pull requests, and the conventions we follow.
 
-- バグ報告・機能提案は **Issue** からお願いします。再現手順・期待する挙動・実際の挙動を
-  含めていただけると助かります。
-- セキュリティ上の脆弱性は Issue ではなく、非公開の窓口から報告してください
-  （[`SECURITY.md`](SECURITY.md) を参照）。
-- 大きめの変更を予定している場合は、実装前に Issue で方針を相談していただけると、
-  手戻りを防げます。
+## Getting started
 
-## 開発環境
+- Please report bugs and propose features via **Issues**. Including reproduction steps, the
+  expected behavior, and the actual behavior is a big help.
+- Do **not** report security vulnerabilities through public issues. Use the private channel
+  instead (see [`SECURITY.md`](SECURITY.md)).
+- For larger changes, please open an issue to discuss the approach before implementing — it
+  helps avoid wasted work.
 
-Ruby >= 3.2 が必要です。ルートの `Gemfile` がモノレポ内の全 gem を束ねています。
+## Development environment
+
+Ruby >= 3.2 is required. The root `Gemfile` bundles every gem in the monorepo.
 
 ```bash
-bundle install          # 依存解決
-bundle exec rake        # 全 gem の spec + RuboCop（CI 相当のフルチェック）
-bundle exec rake spec   # テストのみ
+bundle install          # Resolve dependencies
+bundle exec rake        # spec + RuboCop for all gems (full, CI-equivalent check)
+bundle exec rake spec   # Tests only
 bundle exec rake rubocop
 ```
 
-**すべてのコミットでテストグリーン + RuboCop パス + ビルド可能**を維持してください
-（`git bisect` 可能性のため）。
+Keep **every commit green (tests + RuboCop) and buildable** so that `git bisect` stays usable.
 
-## ブランチと Pull Request
+## Branches and pull requests
 
-- `main` は保護されており、**直接 push はできません**。変更はすべて Pull Request 経由で
-  `main` にマージされます。
-- 外部コントリビューターはリポジトリを **fork** し、トピックブランチで作業して `main` 向けの
-  PR を出してください。
-- マージは **merge commit 方式のみ**です（squash / rebase merge は無効）。意味のあるコミットを
-  積み上げた履歴をプロジェクトの資産として残すためです。
+- `main` is protected and **cannot be pushed to directly**. All changes land on `main` through
+  pull requests.
+- External contributors should **fork** the repository, work on a topic branch, and open a PR
+  against `main`.
+- We merge with **merge commits only** (squash / rebase merges are disabled). This preserves a
+  history of meaningful commits, which we treat as a project asset.
 
-## コミット規約
+## Commit conventions
 
-このプロジェクトでは **コミットログを「レビュアーが変更を理解するための物語」** として
-重視しています。詳細な規約は [`docs/commit-guidelines.md`](docs/commit-guidelines.md) に
-定めてあり、**PR を出す前に必ず一読してください**。要点のみ抜粋します。
+We treat the commit log as **the narrative a reviewer reads to understand a change**. The full
+rules live in [`docs/commit-guidelines.md`](docs/commit-guidelines.md) (written in Japanese);
+**please read it before opening a PR**. The key points:
 
-- **1 PR = 1 機能単位、1 コミット = 1 意味単位**。作業の最後にまとめて 1 コミットにするのは
-  規約違反です。意味単位が完成するたびにコミットしてください。
-- コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/) 準拠
-  （`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `perf` / `ci`）。scope は gem 名の
-  短縮形（`core` / `rspec` / `mcp` / `rbs` など）。
-- 件名は「何をしたか」、本文に「なぜか（Why）」を書く。
-- **振る舞いの変更とリファクタリング**、**機械的変更と手書きの変更**、**依存追加とその利用**は
-  コミットを分離する。
-- テストは対応する実装と同じコミットに含める。
+- **1 PR = one unit of functionality, 1 commit = one logical change.** Squashing all the work
+  into a single final commit violates the policy; commit as each logical unit is completed.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+  (`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `perf` / `ci`). The scope is the
+  short gem name (`core` / `rspec` / `mcp` / `rbs`, etc.).
+- The subject says *what* changed; the body explains *why*.
+- Separate **behavioral changes from refactoring**, **mechanical changes from hand-written
+  ones**, and **dependency additions from their use** into distinct commits.
+- Include tests in the same commit as the implementation they cover.
 
-## コーディング規約
+## Coding conventions
 
-- コメントは日本語、`it` の説明文・識別子などコード本体は英語で書きます。
-- スタイルは RuboCop に従います（`bundle exec rake rubocop`）。
+- Comments are written in Japanese; code itself (identifiers, `it` descriptions, etc.) is in
+  English.
+- Style is enforced by RuboCop (`bundle exec rake rubocop`).
 
-## ライセンス
+## License
 
-コントリビュートされたコードは、本プロジェクトと同じ [MIT ライセンス](LICENSE) の下で
-公開されることに同意したものとみなされます。
+By contributing, you agree that your contributions will be licensed under the project's
+[MIT License](LICENSE).
