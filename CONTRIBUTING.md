@@ -54,8 +54,9 @@ rules live in [`docs/commit-guidelines.md`](docs/commit-guidelines.md) (written 
 
 ## Coding conventions
 
-- Comments may be written in any language; code itself (identifiers, `it` descriptions, etc.)
-  is in English.
+- All natural language inside code is English — identifiers, string literals, log and
+  exception messages, spec descriptions (`it` / `describe`), and so on. The only exception is
+  comments, which may be written in any language.
 - Style is enforced by RuboCop (`bundle exec rake rubocop`).
 
 ## License
