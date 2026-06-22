@@ -1,32 +1,36 @@
-# セキュリティポリシー
+# Security Policy
 
-## サポート対象バージョン
+*日本語版は [SECURITY_JP.md](SECURITY_JP.md) を参照してください。*
 
-Ethotrace は 1.0 リリース前であり、修正は **`main` の最新コミット**に対してのみ提供します。
-脆弱性報告の際は、できるだけ最新の `main` で再現を確認してください。
+## Supported versions
 
-## 脆弱性の報告
+Ethotrace is pre-1.0, and fixes are provided only against the **latest commit on `main`**.
+When reporting a vulnerability, please confirm the issue against the most recent `main` if you
+can.
 
-セキュリティ上の脆弱性は、**公開 Issue では報告しないでください**。公開すると、修正前に
-悪用される恐れがあります。
+## Reporting a vulnerability
 
-代わりに、GitHub の **Private Vulnerability Reporting** を利用してください。
+Please do **not** report security vulnerabilities through public issues. Disclosing them
+publicly risks exploitation before a fix is available.
 
-1. 本リポジトリの **Security** タブを開く
-2. **Report a vulnerability** から非公開の報告を作成する
+Instead, use GitHub's **Private Vulnerability Reporting**:
 
-報告には以下を含めていただけると、確認と修正が早まります。
+1. Open the **Security** tab of this repository.
+2. Click **Report a vulnerability** to file a private report.
 
-- 影響を受けるコンポーネント（gem 名・該当ファイル / メソッド）
-- 再現手順、または PoC
-- 想定される影響範囲
+Including the following helps us confirm and fix the issue faster:
 
-可能な範囲で速やかに確認し、対応方針を返信します。修正が公開可能になるまでは、詳細を
-非公開に保つことにご協力ください。
+- The affected component (gem name, file / method).
+- Reproduction steps, or a proof of concept.
+- The expected impact.
 
-## 想定する脅威モデル
+We will review the report and respond with a remediation plan as quickly as we can. Until a
+fix is ready to disclose, please help us keep the details private.
 
-Ethotrace は **テスト実行中にメソッド呼び出しを観測する開発・テスト用ツール**です。本番環境の
-リクエストパスに常駐させることは想定していません。観測結果（JSONL）には、テストで流れた
-**引数・戻り値の値が記録され得ます**。観測データを公開・共有する際は、フィクスチャに含まれる
-秘密情報（トークン・個人情報など）が混入していないか確認してください。
+## Threat model
+
+Ethotrace is a **development and testing tool that observes method calls during test runs**.
+It is not intended to run on a production request path. Observation results (JSONL) **can
+record the values of arguments and return values** that flow through your tests. Before
+publishing or sharing observation data, make sure no secrets (tokens, personal data, etc.)
+contained in fixtures have leaked into it.
