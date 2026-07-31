@@ -38,5 +38,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "ethotrace", Ethotrace::MCP::VERSION
 
   # MCP プロトコル(JSON-RPC over stdio)の公式 Ruby SDK。
-  spec.add_dependency "mcp", "~> 0.1"
+  spec.add_dependency "mcp", ">= 0.1", "< 2.0"
 end
